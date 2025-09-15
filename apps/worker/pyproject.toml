@@ -1,0 +1,27 @@
+[project]
+name = "yeetflow-worker"
+version = "0.1.0"
+description = "YeetFlow Python worker service"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.116.1",
+    "uvicorn[standard]>=0.35.0",
+    "pydantic>=2.11.9",
+    "python-socketio>=5.13.0",
+    "browser-use>=0.7.7",
+    "httpx>=0.28.1",
+    "python-multipart>=0.0.20",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.4.2",
+    "httpx>=0.28.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
