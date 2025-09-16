@@ -9,7 +9,10 @@
     "dev": "uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
     "install-deps": "uv sync",
     "lint": "uv run ruff check .",
-    "lint-fix": "uv run ruff check --fix .",
-    "format": "uv run ruff format ."
+    "lint:fix": "uv run ruff check --fix .",
+    "lint:staged": "uv run ruff check --fix",
+    "lint:statistics": "uv run ruff check . --statistics",
+    "format": "uv run ruff format .",
+    "format:staged": "uv run ruff format"
   }
 }
