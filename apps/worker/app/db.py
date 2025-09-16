@@ -1,6 +1,5 @@
 import sqlite3
 import os
-from typing import Optional
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///yeetflow.db")
@@ -91,5 +90,42 @@ def create_tables():
         )
     ''')
     
-    conn.commit()
-    conn.close()
+def seed_test_data():
+    """Seed test data for development and testing."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Seed test user
+        cursor.execute('''
+            INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            'test-user-id',
+            'test@example.com',
+            'Test User',
+            '2025-09-16T10:00:00',
+            '2025-09-16T10:00:00'
+        ))
+
+        # Seed test flow
+        cursor.execute('''
+            INSERT OR IGNORE INTO flows (id, name, description, user_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            'test-flow',
+            'Test Flow',
+            'A test flow for development and testing',
+            'test-user-id',
+            '2025-09-16T10:00:00',
+            '2025-09-16T10:00:00'
+        ))
+
+        conn.commit()
+        print("✅ Test data seeded successfully")
+
+    except Exception as e:
+        print(f"❌ Error seeding test data: {e}")
+        conn.rollback()
+    finally:
+        conn.close()

@@ -31,7 +31,9 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_runs_nonexistent_returns_404(self):
         """Test that GET /runs/{runId} returns 404 for nonexistent run."""
-        response = self.client.get(f"{self.API_PREFIX}/runs/nonexistent-run-id")
+        # Use a valid UUID format that doesn't exist in database
+        nonexistent_uuid = "091384b9-afe5-429c-8cba-abdff02fb79c"
+        response = self.client.get(f"{self.API_PREFIX}/runs/{nonexistent_uuid}")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 

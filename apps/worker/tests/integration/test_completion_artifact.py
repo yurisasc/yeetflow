@@ -11,7 +11,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start a flow that will complete automatically
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "auto-complete-flow", "user_id": "test-user"},
+            json={"flow_id": "test-flow", "user_id": "test-user"},
         )
         assert response.status_code == 201
 
@@ -35,8 +35,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         """Test that flow status updates to completed when finished."""
         # Start a flow
         response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={"flow_id": "quick-flow", "user_id": "test-user"},
+            f"{self.API_PREFIX}/runs", json={"flow_id": "test-flow", "user_id": "test-user"}
         )
         assert response.status_code == 201
 

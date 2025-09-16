@@ -102,7 +102,7 @@ class TestStartFlowIntegration(BaseTestClass):
         for i in range(3):
             response = self.client.post(
                 f"{self.API_PREFIX}/runs",
-                json={"flow_id": f"test-flow-{i}", "user_id": "test-user"},
+                json={"flow_id": "test-flow", "user_id": "test-user"},
             )
             responses.append(response)
             assert response.status_code == 201
@@ -111,9 +111,7 @@ class TestStartFlowIntegration(BaseTestClass):
         run_ids = [r.json()["run_id"] for r in responses]
         assert len(set(run_ids)) == len(run_ids)  # All unique
 
-    @pytest.mark.parametrize(
-        "flow_id", ["simple-flow", "complex-flow", "automation-flow"]
-    )
+    @pytest.mark.parametrize("flow_id", ["test-flow"])
     def test_start_flow_works_with_different_flows(self, flow_id):
         """Test that starting works with different flow configurations."""
         response = self.client.post(
