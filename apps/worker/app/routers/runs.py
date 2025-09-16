@@ -33,7 +33,11 @@ async def create_run(request: CreateRunRequest):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Create run record with PENDING status
+        # Validate that flow exists
+        cursor.execute("SELECT id FROM flows WHERE id = ?", (request.flow_id,))
+        flow = cursor.fetchone()
+        if not flow:
+            raise HTTPException(status_code=400, detail="Flow not found")
         cursor.execute(
             """
             INSERT INTO runs (id, flow_id, user_id, status, created_at, updated_at)
@@ -104,6 +108,10 @@ async def create_run(request: CreateRunRequest):
         )
 
         return CreateRunResponse(run_id=run_id, session_url=session_url)
+
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is (they have the correct status code)
+        raise
 
     except Exception as e:
         # If anything fails, update run status to FAILED
