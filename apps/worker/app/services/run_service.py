@@ -7,7 +7,7 @@ import uuid
 from fastapi import HTTPException
 from ..db import get_db_connection
 from ..models import RunStatus
-from ..utils.retry import retry_db_operation, RetryError
+from ..utils.retry import retry_db_operation
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +22,7 @@ class RunService:
     async def create_run_with_transaction(
         self, run_id: str, flow_id: str, user_id: str
     ) -> Dict[str, Any]:
-        """
-        Create a run record and commit immediately.
-        Returns the created run data.
-        """
+        """Create a run record (autocommit) and return the created run data."""
         try:
             conn = get_db_connection()
             try:
@@ -53,7 +50,7 @@ class RunService:
                     ),
                 )
                 conn.commit()
-                
+
                 return {
                     "id": run_id,
                     "flow_id": flow_id,
@@ -68,7 +65,7 @@ class RunService:
 
         except sqlite3.Error as e:
             logger.error(f"Database error creating run: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def update_run_with_session(
@@ -92,13 +89,15 @@ class RunService:
                         run_id,
                     ),
                 )
+                if cursor.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Run not found")
                 conn.commit()
             finally:
                 conn.close()
 
         except sqlite3.Error as e:
             logger.error(f"Database error updating run with session: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def update_run_status(self, run_id: str, status: RunStatus) -> None:
@@ -119,13 +118,15 @@ class RunService:
                         run_id,
                     ),
                 )
+                if cursor.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Run not found")
                 conn.commit()
             finally:
                 conn.close()
 
         except sqlite3.Error as e:
             logger.error(f"Database error updating run status: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def create_session_record(
@@ -158,7 +159,7 @@ class RunService:
 
         except sqlite3.Error as e:
             logger.error(f"Database error creating session: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def get_run_by_id(self, run_id: str) -> Optional[Dict[str, Any]]:
@@ -192,20 +193,20 @@ class RunService:
 
         except sqlite3.Error as e:
             logger.error(f"Database error getting run: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            raise
 
-    async def commit_transaction(self, conn) -> None:
+    async def commit_transaction(self, conn: sqlite3.Connection) -> None:
         """Commit the current transaction."""
         try:
             conn.commit()
         except sqlite3.Error as e:
-            logger.error(f"Database error committing transaction: {e}")
-            raise HTTPException(status_code=500, detail="Database error")
+            logger.exception(f"Database error committing transaction: {e}")
+            raise
 
-    async def rollback_transaction(self, conn) -> None:
+    async def rollback_transaction(self, conn: sqlite3.Connection) -> None:
         """Rollback the current transaction."""
         try:
             conn.rollback()
         except sqlite3.Error as e:
-            logger.error(f"Database error rolling back transaction: {e}")
+            logger.exception(f"Database error rolling back transaction: {e}")
             # Don't raise here since we're already in error handling

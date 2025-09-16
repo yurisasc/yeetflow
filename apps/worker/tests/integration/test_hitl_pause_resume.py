@@ -11,7 +11,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Start a flow that will require user input
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "hitl-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440001",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -39,7 +42,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Start a flow that requires user input
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "hitl-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440001",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -64,7 +70,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Start a flow with multiple user interaction points
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "multi-hitl-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440005",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -94,7 +103,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Start a flow that requires user input
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "hitl-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440001",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -120,7 +132,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Start a flow
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "hitl-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440001",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 

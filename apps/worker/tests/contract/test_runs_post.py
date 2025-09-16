@@ -8,7 +8,10 @@ class TestRunsPostContract(BaseTestClass):
         """Test that POST /runs returns 201 with run ID."""
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
         data = response.json()
@@ -19,14 +22,15 @@ class TestRunsPostContract(BaseTestClass):
     def test_post_runs_requires_flow_id(self):
         """Test that POST /runs requires flow_id."""
         response = self.client.post(
-            f"{self.API_PREFIX}/runs", json={"user_id": "test-user"}
+            f"{self.API_PREFIX}/runs", json={"user_id": "550e8400-e29b-41d4-a716-446655440000"}
         )
         assert response.status_code == 422  # Validation error
 
     def test_post_runs_requires_user_id(self):
         """Test that POST /runs requires user_id."""
         response = self.client.post(
-            f"{self.API_PREFIX}/runs", json={"flow_id": "test-flow"}
+            f"{self.API_PREFIX}/runs",
+            json={"flow_id": "550e8400-e29b-41d4-a716-446655440000"},
         )
         assert response.status_code == 422  # Validation error
 
@@ -34,7 +38,10 @@ class TestRunsPostContract(BaseTestClass):
         """Test that POST /runs validates flow_id exists."""
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "nonexistent", "user_id": "test-user"},
+            json={
+                "flow_id": "00000000-0000-0000-0000-000000000000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 400
         assert "flow not found" in response.json()["detail"].lower()
@@ -43,7 +50,10 @@ class TestRunsPostContract(BaseTestClass):
         """Test that POST /runs creates a browser session."""
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
         data = response.json()

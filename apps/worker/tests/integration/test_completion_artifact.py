@@ -11,7 +11,10 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start a flow that will complete automatically
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -35,7 +38,11 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         """Test that flow status updates to completed when finished."""
         # Start a flow
         response = self.client.post(
-            f"{self.API_PREFIX}/runs", json={"flow_id": "test-flow", "user_id": "test-user"}
+            f"{self.API_PREFIX}/runs",
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -59,7 +66,10 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start and complete a flow
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "auto-complete-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440002",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -84,7 +94,10 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start a flow that will fail
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "failing-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440005",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -102,7 +115,10 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start a flow that generates PDF
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "pdf-generation-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440003",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -125,7 +141,10 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start a flow that generates large output
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "large-output-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440004",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 
@@ -144,7 +163,10 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         # Start and complete a flow
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "auto-complete-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440002",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert response.status_code == 201
 

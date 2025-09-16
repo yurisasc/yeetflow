@@ -9,7 +9,10 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Create a run that will go into awaiting_input state
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert create_response.status_code == 201
         run_id = create_response.json()["run_id"]
@@ -40,7 +43,10 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Create a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert create_response.status_code == 201
         run_id = create_response.json()["run_id"]
@@ -57,7 +63,10 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Create and pause a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert create_response.status_code == 201
         run_id = create_response.json()["run_id"]
@@ -75,7 +84,10 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Create and pause a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert create_response.status_code == 201
         run_id = create_response.json()["run_id"]
@@ -93,7 +105,10 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Create and pause a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
-            json={"flow_id": "test-flow", "user_id": "test-user"},
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
         )
         assert create_response.status_code == 201
         run_id = create_response.json()["run_id"]

@@ -33,15 +33,26 @@ class SteelService:
                 },
             )
 
-            if response.status_code == 201:
-                session_data = response.json()
-                logger.info(f"Successfully created Steel session: {session_data.get('id')}")
-                return session_data
-            else:
+            if response.status_code == 429 or 500 <= response.status_code < 600:
+                response.raise_for_status()
+
+            if response.status_code != 201:
                 logger.error(
-                    f"Failed to create Steel session: {response.status_code} - {response.text}"
+                    "Failed to create Steel session: %s - %s",
+                    response.status_code,
+                    response.text,
                 )
                 return None
+
+            session_data = response.json()
+            session_url = session_data.get("sessionViewerUrl")
+            if not session_url:
+                logger.error("Steel session created but missing 'sessionViewerUrl'")
+                return None
+            logger.info(
+                "Successfully created Steel session: %s", session_data.get("id")
+            )
+            return session_data
 
     @retry_network_operation(max_attempts=3, base_delay=0.5, max_delay=10.0)
     async def release_session(self, session_id: str) -> bool:
@@ -52,7 +63,10 @@ class SteelService:
                 headers={"steel-api-key": self.api_key},
             )
 
-            success = response.status_code == 200
+            if response.status_code == 429 or 500 <= response.status_code < 600:
+                response.raise_for_status()
+
+            success = response.status_code in (200, 204)
             if success:
                 logger.info(f"Successfully released Steel session: {session_id}")
             else:
