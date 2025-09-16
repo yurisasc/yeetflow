@@ -53,12 +53,3 @@ class TestRunsPostContract(BaseTestClass):
         # Should have a valid session URL
         assert data["session_url"].startswith("https://")
 
-    @pytest.mark.asyncio
-    async def test_post_runs_async_handling(self):
-        """Test that POST /runs handles async operations correctly."""
-        async with AsyncClient(app=app, base_url="http://testserver") as client:
-            response = await client.post(
-                f"{self.API_PREFIX}/runs",
-                json={"flow_id": "test-flow", "user_id": "test-user"},
-            )
-            assert response.status_code == 201

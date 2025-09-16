@@ -15,11 +15,7 @@ dependencies = [
 ]
 
 [tool.uv]
-dev-dependencies = [
-    "pytest>=8.4.2",
-    "httpx>=0.28.1",
-    "pytest-asyncio>=1.2.0",
-]
+dev-dependencies = ["pytest>=8.4.2", "httpx>=0.28.1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
