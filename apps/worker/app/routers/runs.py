@@ -23,6 +23,16 @@ class CreateRunResponse(BaseModel):
     status: str = RunStatus.RUNNING
 
 
+class GetRunResponse(BaseModel):
+    run_id: str
+    flow_id: str
+    user_id: str
+    status: str
+    session_url: str = None
+    created_at: str
+    updated_at: str
+
+
 @router.post("/runs", response_model=CreateRunResponse, status_code=201)
 async def create_run(request: CreateRunRequest):
     """Create a new run, initialize Steel.dev session, and return run details."""
@@ -130,3 +140,47 @@ async def create_run(request: CreateRunRequest):
             pass  # Ignore cleanup errors
 
         raise HTTPException(status_code=500, detail=f"Failed to create run: {str(e)}")
+
+
+@router.get("/runs/{run_id}", response_model=GetRunResponse)
+async def get_run(run_id: str):
+    """Get details of a specific run by ID."""
+    # Validate UUID format first
+    try:
+        uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid run ID format")
+
+    try:
+        # Create database connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get run details
+        cursor.execute(
+            """
+            SELECT id, flow_id, user_id, status, session_url, created_at, updated_at
+            FROM runs WHERE id = ?
+        """,
+            (run_id,),
+        )
+        run = cursor.fetchone()
+        conn.close()
+
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        return GetRunResponse(
+            run_id=run[0],
+            flow_id=run[1],
+            user_id=run[2],
+            status=run[3],
+            session_url=run[4],
+            created_at=run[5],
+            updated_at=run[6],
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get run: {str(e)}")
