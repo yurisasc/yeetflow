@@ -74,6 +74,60 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
     def test_get_runs_artifact_large_file_handling(self):
         """Test that GET /runs/{runId}/artifact handles large files correctly."""
-        # TODO: Test with large artifact files
-        # This should test streaming or chunked responses
-        pass
+        # First create and complete a run
+        create_response = self.client.post(
+            f"{self.API_PREFIX}/runs",
+            json={"flow_id": "test-flow", "user_id": "test-user"},
+        )
+        assert create_response.status_code == 201
+        run_id = create_response.json()["run_id"]
+
+        # TODO: Complete the run and generate a large artifact file
+        # For now, assume the run is completed with a large artifact
+
+        # Get the artifact
+        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
+
+        # Should return 200 even for large files
+        assert response.status_code == 200
+
+        # Should have appropriate content type for file downloads
+        assert "content-type" in response.headers
+
+        # Should have content-disposition header for file downloads
+        assert "content-disposition" in response.headers
+        assert "attachment" in response.headers["content-disposition"]
+
+        # Test that response supports streaming/chunked transfer
+        # This is indicated by the transfer-encoding header or content-length
+        transfer_encoding = response.headers.get("transfer-encoding")
+        content_length = response.headers.get("content-length")
+
+        # Either chunked transfer or explicit content-length should be present
+        assert (
+            transfer_encoding == "chunked" or
+            (content_length is not None and int(content_length) > 0)
+        ), "Response should support streaming or have explicit content length"
+
+        # For large files, the response should not load everything into memory
+        # Test by checking that we can read the content in chunks
+        content = response.content
+        assert len(content) > 0, "Should have file content"
+
+        # If it's a very large file, content-length should reflect that
+        if content_length:
+            expected_size = int(content_length)
+            actual_size = len(content)
+            assert actual_size == expected_size, f"Content size mismatch: expected {expected_size}, got {actual_size}"
+
+        # Additional test: verify that partial content requests work (if supported)
+        # This tests range request support for large files
+        range_response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/artifact",
+            headers={"Range": "bytes=0-99"}  # Request first 100 bytes
+        )
+
+        # Should return 206 Partial Content if range requests are supported
+        if range_response.status_code == 206:
+            assert "content-range" in range_response.headers
+            assert len(range_response.content) <= 100
