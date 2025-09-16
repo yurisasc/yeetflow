@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from tests.conftest import BaseTestClass
 
 
@@ -5,7 +7,7 @@ class TestRunsPostContract(BaseTestClass):
     """Contract tests for POST /runs endpoint."""
 
     def test_post_runs_returns_201_with_run_id(self):
-        """Test that POST /runs returns 201 with run ID."""
+        """Test that POST /runs returns HTTPStatus.CREATED with run ID."""
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
@@ -13,7 +15,7 @@ class TestRunsPostContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
         data = response.json()
         assert "run_id" in data
         assert "session_url" in data
@@ -22,9 +24,12 @@ class TestRunsPostContract(BaseTestClass):
     def test_post_runs_requires_flow_id(self):
         """Test that POST /runs requires flow_id."""
         response = self.client.post(
-            f"{self.API_PREFIX}/runs", json={"user_id": "550e8400-e29b-41d4-a716-446655440000"}
+            f"{self.API_PREFIX}/runs",
+            json={"user_id": "550e8400-e29b-41d4-a716-446655440000"},
         )
-        assert response.status_code == 422  # Validation error
+        assert (
+            response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        )  # Validation error
 
     def test_post_runs_requires_user_id(self):
         """Test that POST /runs requires user_id."""
@@ -32,7 +37,9 @@ class TestRunsPostContract(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={"flow_id": "550e8400-e29b-41d4-a716-446655440000"},
         )
-        assert response.status_code == 422  # Validation error
+        assert (
+            response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        )  # Validation error
 
     def test_post_runs_invalid_flow_id(self):
         """Test that POST /runs validates flow_id exists."""
@@ -43,7 +50,7 @@ class TestRunsPostContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 400
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "flow not found" in response.json()["detail"].lower()
 
     def test_post_runs_creates_browser_session(self):
@@ -55,7 +62,7 @@ class TestRunsPostContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
         data = response.json()
         # Should have a valid session URL
         assert data["session_url"].startswith("https://")

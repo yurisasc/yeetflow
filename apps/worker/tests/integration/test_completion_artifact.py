@@ -1,5 +1,8 @@
-import pytest
 import time
+from http import HTTPStatus
+
+import pytest
+
 from tests.conftest import BaseTestClass
 
 
@@ -16,7 +19,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -25,7 +28,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
 
         # Verify artifact is available
         artifact_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert artifact_response.status_code == 200
+        assert artifact_response.status_code == HTTPStatus.OK
 
         # Verify artifact has content
         assert len(artifact_response.content) > 0
@@ -44,7 +47,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -71,22 +74,22 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
         self._wait_for_status(run_id, "completed")
 
         # Get artifact
         artifact_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert artifact_response.status_code == 200
+        assert artifact_response.status_code == HTTPStatus.OK
         original_content = artifact_response.content
 
         # Wait a bit and get artifact again
         time.sleep(1)
         artifact_response2 = self.client.get(
-            f"{self.API_PREFIX}/runs/{run_id}/artifact"
+            f"{self.API_PREFIX}/runs/{run_id}/artifact",
         )
-        assert artifact_response2.status_code == 200
+        assert artifact_response2.status_code == HTTPStatus.OK
         assert artifact_response2.content == original_content
 
     def test_failed_flow_does_not_generate_artifact(self):
@@ -99,7 +102,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -108,7 +111,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
 
         # Verify no artifact available
         artifact_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert artifact_response.status_code == 404
+        assert artifact_response.status_code == HTTPStatus.NOT_FOUND
 
     def test_artifact_content_type_based_on_flow_type(self):
         """Test that artifact content type matches flow output type."""
@@ -120,14 +123,14 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
         self._wait_for_status(run_id, "completed")
 
         # Check artifact content type
         artifact_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert artifact_response.status_code == 200
+        assert artifact_response.status_code == HTTPStatus.OK
 
         # Should have appropriate content type for PDF
         if "content-type" in artifact_response.headers:
@@ -146,17 +149,18 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
         self._wait_for_status(run_id, "completed")
 
         # Get artifact
         artifact_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert artifact_response.status_code == 200
+        assert artifact_response.status_code == HTTPStatus.OK
 
         # Verify reasonable size (should be > 1KB for "large" output)
-        assert len(artifact_response.content) > 1024
+        one_kb = 1024
+        assert len(artifact_response.content) > one_kb
 
     def test_artifact_filename_includes_run_id(self):
         """Test that artifact filename includes run ID."""
@@ -168,14 +172,14 @@ class TestCompletionArtifactIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
         self._wait_for_status(run_id, "completed")
 
         # Get artifact
         artifact_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert artifact_response.status_code == 200
+        assert artifact_response.status_code == HTTPStatus.OK
 
         # Check filename in content-disposition
         content_disposition = artifact_response.headers.get("content-disposition", "")
@@ -186,7 +190,7 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         start_time = time.time()
         while time.time() - start_time < timeout:
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-            assert get_response.status_code == 200
+            assert get_response.status_code == HTTPStatus.OK
             if get_response.json()["status"] == target_status:
                 return
             time.sleep(1)
@@ -195,5 +199,6 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         current_status = get_response.json()["status"]
         pytest.fail(
-            f"Run {run_id} did not reach status {target_status}, current status: {current_status}"
+            f"Run {run_id} did not reach status {target_status}, "
+            f"current status: {current_status}",
         )

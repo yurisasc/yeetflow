@@ -1,4 +1,7 @@
+from http import HTTPStatus
+
 import pytest
+
 from tests.conftest import BaseTestClass
 
 
@@ -7,10 +10,10 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
     @pytest.mark.xfail(
         strict=False,
-        reason="Artifact generation not wired yet; will pass once completion pipeline is implemented.",
+        reason="Artifact generation not wired yet; enable after completion pipeline.",
     )
     def test_get_runs_artifact_returns_200_with_file(self):
-        """Test that GET /runs/{runId}/artifact returns 200 with file for completed runs."""
+        """Test GET /runs/{runId}/artifact returns OK with file for completed runs."""
         # First create and complete a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -19,7 +22,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # TODO: Complete the run and generate artifact
@@ -27,7 +30,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
         # Get the artifact
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         # Should return file content
         assert len(response.content) > 0
         # Should have appropriate content type
@@ -36,9 +39,9 @@ class TestRunsArtifactGetContract(BaseTestClass):
     def test_get_runs_artifact_nonexistent_run_returns_404(self):
         """Test that GET /runs/{runId}/artifact returns 404 for nonexistent run."""
         response = self.client.get(
-            f"{self.API_PREFIX}/runs/nonexistent-run-id/artifact"
+            f"{self.API_PREFIX}/runs/nonexistent-run-id/artifact",
         )
-        assert response.status_code == 404
+        assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
 
     def test_get_runs_artifact_incomplete_run_returns_404(self):
@@ -51,26 +54,27 @@ class TestRunsArtifactGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Get the artifact before completion
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        assert response.status_code == 404
+        assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not ready" in response.json()["detail"].lower()
 
     def test_get_runs_artifact_failed_run_returns_404(self):
-        """Test that GET /runs/{runId}/artifact returns 404 for failed runs."""
+        """Test that GET /runs/{runId}/artifact returns NOT_FOUND for failed runs."""
         # TODO: Create a failed run
         # For now, test with nonexistent run
         response = self.client.get(f"{self.API_PREFIX}/runs/failed-run-id/artifact")
-        assert response.status_code == 404
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
     @pytest.mark.xfail(
-        strict=False, reason="Awaiting artifact generation/completion flow."
+        strict=False,
+        reason="Awaiting artifact generation/completion flow.",
     )
     def test_get_runs_artifact_content_disposition(self):
-        """Test that GET /runs/{runId}/artifact includes proper content-disposition header."""
+        """Test GET /runs/{runId}/artifact proper content-disposition header."""
         # Create and complete a run with artifact
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -79,19 +83,19 @@ class TestRunsArtifactGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # TODO: Complete the run
 
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             assert "content-disposition" in response.headers
             assert "attachment" in response.headers["content-disposition"]
 
     @pytest.mark.xfail(
         strict=False,
-        reason="Large artifact path not available yet; enable after artifact pipeline is ready.",
+        reason="Large artifact path not available yet; enable after artifact pipeline.",
     )
     def test_get_runs_artifact_large_file_handling(self):
         """Test that GET /runs/{runId}/artifact handles large files correctly."""
@@ -103,7 +107,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # TODO: Complete the run and generate a large artifact file
@@ -112,8 +116,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
         # Get the artifact
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
 
-        # Should return 200 even for large files
-        assert response.status_code == 200
+        # Should return HTTPStatus.OK even for large files
+        assert response.status_code == HTTPStatus.OK
 
         # Should have appropriate content type for file downloads
         assert "content-type" in response.headers
@@ -141,9 +145,9 @@ class TestRunsArtifactGetContract(BaseTestClass):
         if content_length:
             expected_size = int(content_length)
             actual_size = len(content)
-            assert (
-                actual_size == expected_size
-            ), f"Content size mismatch: expected {expected_size}, got {actual_size}"
+            assert actual_size == expected_size, (
+                f"Content size mismatch: expected {expected_size}, got {actual_size}"
+            )
 
         # Additional test: verify that partial content requests work (if supported)
         # This tests range request support for large files
@@ -152,7 +156,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
             headers={"Range": "bytes=0-99"},  # Request first 100 bytes
         )
 
-        # Should return 206 Partial Content if range requests are supported
-        if range_response.status_code == 206:
+        # Should return HTTPStatus.PARTIAL_CONTENT if range requests are supported
+        if range_response.status_code == HTTPStatus.PARTIAL_CONTENT:
             assert "content-range" in range_response.headers
-            assert len(range_response.content) <= 100
+            range_request_size = 100
+            assert len(range_response.content) <= range_request_size

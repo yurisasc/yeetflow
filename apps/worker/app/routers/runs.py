@@ -1,13 +1,13 @@
+import logging
+from uuid import UUID, uuid4
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
-from uuid import UUID, uuid4
-import logging
 
-from ..models import RunStatus
-from ..services.run_service import RunService
-from ..services.steel_service import SteelService
-from ..sockets import emit_progress
+from app.models import RunStatus
+from app.services.run_service import RunService
+from app.services.steel_service import SteelService
+from app.sockets import emit_progress
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class GetRunResponse(BaseModel):
     flow_id: str
     user_id: str
     status: RunStatus
-    session_url: Optional[str] = None
+    session_url: str | None = None
     created_at: str
     updated_at: str
 
@@ -46,7 +46,9 @@ async def create_run(request: CreateRunRequest):
     try:
         # Create run (already committed to database)
         await run_service.create_run_with_transaction(
-            run_id, str(request.flow_id), str(request.user_id)
+            run_id,
+            str(request.flow_id),
+            str(request.user_id),
         )
 
         # Emit pending status event
@@ -72,7 +74,8 @@ async def create_run(request: CreateRunRequest):
                 },
             )
             raise HTTPException(
-                status_code=500, detail="Failed to create browser session"
+                status_code=500,
+                detail="Failed to create browser session",
             )
 
         session_url = session_data.get("sessionViewerUrl")
@@ -89,13 +92,16 @@ async def create_run(request: CreateRunRequest):
                 },
             )
             raise HTTPException(
-                status_code=502, detail="Session created without viewer URL"
+                status_code=502,
+                detail="Session created without viewer URL",
             )
 
         # Create session record and update run
         await run_service.create_session_record(run_id, browser_session_id, session_url)
         await run_service.update_run_with_session(
-            run_id, session_url, RunStatus.RUNNING
+            run_id,
+            session_url,
+            RunStatus.RUNNING,
         )
 
         # Emit progress event via Socket.IO
@@ -115,12 +121,15 @@ async def create_run(request: CreateRunRequest):
         raise
     except Exception as e:
         # Handle any other errors
-        logger.exception(f"Error creating run: {e}")
+        logger.exception("Error creating run")
         try:
             await run_service.update_run_status(run_id, RunStatus.FAILED)
-        except Exception as cleanup_error:
-            logger.exception(f"Error during cleanup: {cleanup_error}")
-        raise HTTPException(status_code=500, detail=f"Failed to create run: {str(e)}")
+        except Exception:
+            logger.exception("Error during cleanup")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create run: {e!s}",
+        ) from None
 
 
 @router.get("/runs/{run_id}", response_model=GetRunResponse)
@@ -130,7 +139,7 @@ async def get_run(run_id: str):
     try:
         UUID(run_id, version=4)
     except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid run ID format")
+        raise HTTPException(status_code=422, detail="Invalid run ID format") from None
 
     run_service = RunService()
 
@@ -153,5 +162,8 @@ async def get_run(run_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Error getting run: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get run: {str(e)}")
+        logger.exception("Error getting run")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get run: {e!s}",
+        ) from None

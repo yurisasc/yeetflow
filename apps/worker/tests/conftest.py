@@ -1,17 +1,19 @@
-import sys
 import os
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from fastapi.testclient import TestClient
 
 # Add the parent directory to Python path so we can import the app module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.main import app
+import contextlib
+
 from app.constants import API_V1_PREFIX
 from app.db import seed_test_data
-
+from app.main import app
 
 # Set up any test-wide fixtures here if needed
 
@@ -24,13 +26,13 @@ class BaseTestClass:
     def setup_method(self):
         """Set up test client before each test."""
         # Use a temporary database file for each test to avoid locking issues
-        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
-        self.temp_db.close()
-        os.environ['DATABASE_URL'] = f'sqlite:///{self.temp_db.name}'
-        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_file:
+            self.temp_db = temp_file
+            os.environ["DATABASE_URL"] = f"sqlite:///{temp_file.name}"
+
         # Seed test data
         seed_test_data()
-        
+
         # Mock the Steel service using the common utility
         self.steel_patcher = mock_steel_service()
         self.client = TestClient(app)
@@ -39,10 +41,8 @@ class BaseTestClass:
         """Clean up after each test."""
         self.steel_patcher.stop()
         # Clean up temporary database file
-        try:
-            os.unlink(self.temp_db.name)
-        except (OSError, FileNotFoundError):
-            pass
+        with contextlib.suppress(OSError, FileNotFoundError):
+            Path(self.temp_db.name).unlink()
 
 
 def mock_steel_service():

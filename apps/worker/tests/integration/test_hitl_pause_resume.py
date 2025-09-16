@@ -1,5 +1,8 @@
-import pytest
 import time
+from http import HTTPStatus
+
+import pytest
+
 from tests.conftest import BaseTestClass
 
 
@@ -16,7 +19,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -24,7 +27,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         max_attempts = 10
         for _ in range(max_attempts):
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-            assert get_response.status_code == 200
+            assert get_response.status_code == HTTPStatus.OK
             status = get_response.json()["status"]
 
             if status == "awaiting_input":
@@ -47,7 +50,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -56,9 +59,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
 
         # Resume the flow with user action
         resume_response = self.client.post(
-            f"{self.API_PREFIX}/runs/{run_id}/continue", json={"action": "click_button"}
+            f"{self.API_PREFIX}/runs/{run_id}/continue",
+            json={"action": "click_button"},
         )
-        assert resume_response.status_code == 200
+        assert resume_response.status_code == HTTPStatus.OK
 
         # Verify status changes to running
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -75,23 +79,25 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
         # First pause
         self._wait_for_status(run_id, "awaiting_input")
         resume_response = self.client.post(
-            f"{self.API_PREFIX}/runs/{run_id}/continue", json={"action": "fill_form"}
+            f"{self.API_PREFIX}/runs/{run_id}/continue",
+            json={"action": "fill_form"},
         )
-        assert resume_response.status_code == 200
+        assert resume_response.status_code == HTTPStatus.OK
 
         # Second pause
         self._wait_for_status(run_id, "awaiting_input")
         resume_response = self.client.post(
-            f"{self.API_PREFIX}/runs/{run_id}/continue", json={"action": "submit_form"}
+            f"{self.API_PREFIX}/runs/{run_id}/continue",
+            json={"action": "submit_form"},
         )
-        assert resume_response.status_code == 200
+        assert resume_response.status_code == HTTPStatus.OK
 
         # Verify final status
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -108,7 +114,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -120,7 +126,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"action": "invalid_action"},
         )
-        assert resume_response.status_code == 400
+        assert resume_response.status_code == HTTPStatus.BAD_REQUEST
 
         # Verify status remains awaiting_input
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -137,7 +143,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
         original_session_url = response.json()["session_url"]
@@ -147,9 +153,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
 
         # Resume
         resume_response = self.client.post(
-            f"{self.API_PREFIX}/runs/{run_id}/continue", json={"action": "proceed"}
+            f"{self.API_PREFIX}/runs/{run_id}/continue",
+            json={"action": "proceed"},
         )
-        assert resume_response.status_code == 200
+        assert resume_response.status_code == HTTPStatus.OK
 
         # Verify session URL is preserved
         get_response_after = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -161,7 +168,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         start_time = time.time()
         while time.time() - start_time < timeout:
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-            assert get_response.status_code == 200
+            assert get_response.status_code == HTTPStatus.OK
             if get_response.json()["status"] == target_status:
                 return
             time.sleep(0.5)
@@ -170,5 +177,6 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         current_status = get_response.json()["status"]
         pytest.fail(
-            f"Run {run_id} did not reach status {target_status}, current status: {current_status}"
+            f"Run {run_id} did not reach status {target_status}, "
+            f"current status: {current_status}",
         )
