@@ -19,7 +19,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
 
         # Wait for the flow to reach awaiting_input state
         max_attempts = 10
-        for attempt in range(max_attempts):
+        for _ in range(max_attempts):
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
             assert get_response.status_code == 200
             status = get_response.json()["status"]
@@ -129,10 +129,6 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
 
         # Wait for pause
         self._wait_for_status(run_id, "awaiting_input")
-
-        # Get run data before resume
-        get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        run_data_before = get_response.json()
 
         # Resume
         resume_response = self.client.post(

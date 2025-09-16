@@ -1,6 +1,3 @@
-import pytest
-from httpx import AsyncClient
-from app.main import app
 from tests.conftest import BaseTestClass
 
 
@@ -52,4 +49,3 @@ class TestRunsPostContract(BaseTestClass):
         data = response.json()
         # Should have a valid session URL
         assert data["session_url"].startswith("https://")
-

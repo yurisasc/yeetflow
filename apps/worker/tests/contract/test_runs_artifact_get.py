@@ -104,9 +104,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
         content_length = response.headers.get("content-length")
 
         # Either chunked transfer or explicit content-length should be present
-        assert (
-            transfer_encoding == "chunked" or
-            (content_length is not None and int(content_length) > 0)
+        assert transfer_encoding == "chunked" or (
+            content_length is not None and int(content_length) > 0
         ), "Response should support streaming or have explicit content length"
 
         # For large files, the response should not load everything into memory
@@ -118,13 +117,15 @@ class TestRunsArtifactGetContract(BaseTestClass):
         if content_length:
             expected_size = int(content_length)
             actual_size = len(content)
-            assert actual_size == expected_size, f"Content size mismatch: expected {expected_size}, got {actual_size}"
+            assert (
+                actual_size == expected_size
+            ), f"Content size mismatch: expected {expected_size}, got {actual_size}"
 
         # Additional test: verify that partial content requests work (if supported)
         # This tests range request support for large files
         range_response = self.client.get(
             f"{self.API_PREFIX}/runs/{run_id}/artifact",
-            headers={"Range": "bytes=0-99"}  # Request first 100 bytes
+            headers={"Range": "bytes=0-99"},  # Request first 100 bytes
         )
 
         # Should return 206 Partial Content if range requests are supported
