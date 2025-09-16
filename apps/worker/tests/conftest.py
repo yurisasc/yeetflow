@@ -48,17 +48,3 @@ def mock_steel_service():
     mock_service_class.return_value = mock_service_instance
 
     return patcher
-
-
-def create_test_client():
-    """Create a test client with Steel service mocking applied."""
-    # Apply the mocking
-    patcher = mock_steel_service()
-
-    # Create test client
-    client = TestClient(app)
-
-    # Store the patcher for cleanup
-    client._steel_patcher = patcher
-
-    return client
