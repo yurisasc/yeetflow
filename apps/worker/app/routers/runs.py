@@ -1,20 +1,23 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 import uuid
-from datetime import datetime
+import logging
 
 from ..models import RunStatus
-from ..db import get_db_connection
+from ..services.run_service import RunService
 from ..services.steel_service import SteelService
 from ..sockets import emit_progress
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 # Request/Response models
 class CreateRunRequest(BaseModel):
-    flow_id: str
-    user_id: str
+    flow_id: str = Field(..., min_length=1, description="UUID of the flow")
+    user_id: str = Field(..., min_length=1, description="UUID of the user")
 
 
 class CreateRunResponse(BaseModel):
@@ -28,7 +31,7 @@ class GetRunResponse(BaseModel):
     flow_id: str
     user_id: str
     status: str
-    session_url: str = None
+    session_url: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -37,46 +40,25 @@ class GetRunResponse(BaseModel):
 async def create_run(request: CreateRunRequest):
     """Create a new run, initialize Steel.dev session, and return run details."""
     run_id = str(uuid.uuid4())
+    run_service = RunService()
+    steel_service = SteelService()
 
     try:
-        # Create database connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Create run (already committed to database)
+        await run_service.create_run_with_transaction(run_id, request.flow_id, request.user_id)
 
-        # Validate that flow exists
-        cursor.execute("SELECT id FROM flows WHERE id = ?", (request.flow_id,))
-        flow = cursor.fetchone()
-        if not flow:
-            raise HTTPException(status_code=400, detail="Flow not found")
-        cursor.execute(
-            """
-            INSERT INTO runs (id, flow_id, user_id, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """,
-            (
-                run_id,
-                request.flow_id,
-                request.user_id,
-                RunStatus.PENDING.value,
-                datetime.now().isoformat(),
-                datetime.now().isoformat(),
-            ),
+        # Emit pending status event
+        await emit_progress(
+            run_id,
+            {"status": "pending", "message": "Run created, initializing session"},
         )
 
-        # Create Steel service and session
-        steel_service = SteelService()
+        # Create Steel session
         session_data = await steel_service.create_session()
 
         if not session_data:
-            # Update run status to FAILED if session creation fails
-            cursor.execute(
-                """
-                UPDATE runs SET status = ?, updated_at = ? WHERE id = ?
-            """,
-                (RunStatus.FAILED.value, datetime.now().isoformat(), run_id),
-            )
-            conn.commit()
-            conn.close()
+            # Update run status to FAILED
+            await run_service.update_run_status(run_id, RunStatus.FAILED)
             raise HTTPException(
                 status_code=500, detail="Failed to create browser session"
             )
@@ -84,33 +66,9 @@ async def create_run(request: CreateRunRequest):
         session_url = session_data.get("sessionViewerUrl")
         browser_session_id = session_data.get("id")
 
-        # Create session record
-        session_id = str(uuid.uuid4())
-        cursor.execute(
-            """
-            INSERT INTO sessions (id, run_id, browser_session_id, steel_session_url, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """,
-            (
-                session_id,
-                run_id,
-                browser_session_id,
-                session_url,
-                datetime.now().isoformat(),
-                datetime.now().isoformat(),
-            ),
-        )
-
-        # Update run with session URL and RUNNING status
-        cursor.execute(
-            """
-            UPDATE runs SET session_url = ?, status = ?, updated_at = ? WHERE id = ?
-        """,
-            (session_url, RunStatus.RUNNING.value, datetime.now().isoformat(), run_id),
-        )
-
-        conn.commit()
-        conn.close()
+        # Create session record and update run
+        await run_service.create_session_record(run_id, browser_session_id, session_url)
+        await run_service.update_run_with_session(run_id, session_url, RunStatus.RUNNING)
 
         # Emit progress event via Socket.IO
         await emit_progress(
@@ -120,26 +78,18 @@ async def create_run(request: CreateRunRequest):
         return CreateRunResponse(run_id=run_id, session_url=session_url)
 
     except HTTPException:
-        # Re-raise HTTPExceptions as-is (they have the correct status code)
+        # Re-raise HTTPExceptions as-is
         raise
-
     except Exception as e:
-        # If anything fails, update run status to FAILED
+        # Handle any other errors
+        logger.error(f"Error creating run: {e}")
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                UPDATE runs SET status = ?, updated_at = ? WHERE id = ?
-            """,
-                (RunStatus.FAILED.value, datetime.now().isoformat(), run_id),
-            )
-            conn.commit()
-            conn.close()
-        except:
-            pass  # Ignore cleanup errors
-
+            await run_service.update_run_status(run_id, RunStatus.FAILED)
+        except Exception as cleanup_error:
+            logger.error(f"Error during cleanup: {cleanup_error}")
         raise HTTPException(status_code=500, detail=f"Failed to create run: {str(e)}")
+
+
 
 
 @router.get("/runs/{run_id}", response_model=GetRunResponse)
@@ -151,36 +101,26 @@ async def get_run(run_id: str):
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid run ID format")
 
+    run_service = RunService()
+    
     try:
-        # Create database connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Get run details
-        cursor.execute(
-            """
-            SELECT id, flow_id, user_id, status, session_url, created_at, updated_at
-            FROM runs WHERE id = ?
-        """,
-            (run_id,),
-        )
-        run = cursor.fetchone()
-        conn.close()
-
+        run = await run_service.get_run_by_id(run_id)
+        
         if not run:
             raise HTTPException(status_code=404, detail="Run not found")
 
         return GetRunResponse(
-            run_id=run[0],
-            flow_id=run[1],
-            user_id=run[2],
-            status=run[3],
-            session_url=run[4],
-            created_at=run[5],
-            updated_at=run[6],
+            run_id=run["id"],
+            flow_id=run["flow_id"],
+            user_id=run["user_id"],
+            status=run["status"],
+            session_url=run["session_url"],
+            created_at=run["created_at"],
+            updated_at=run["updated_at"],
         )
 
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting run: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get run: {str(e)}")
