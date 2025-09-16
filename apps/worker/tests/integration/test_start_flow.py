@@ -53,7 +53,9 @@ class TestStartFlowIntegration(BaseTestClass):
             time.sleep(0.1)
         else:
             # If we didn't break, the status never became running
-            pytest.fail(f"Status did not transition to 'running' within {max_retries * 0.1} seconds")
+            pytest.fail(
+                f"Status did not transition to 'running' within {max_retries * 0.1} seconds"
+            )
 
         # Check status
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -119,7 +121,9 @@ class TestStartFlowIntegration(BaseTestClass):
         run_ids = [r.json()["run_id"] for r in responses]
         assert len(set(run_ids)) == len(run_ids)  # All unique
 
-    @pytest.mark.parametrize("flow_id", ["test-flow"])
+    @pytest.mark.parametrize(
+        "flow_id", ["test-flow", "hitl-flow", "auto-complete-flow"]
+    )
     def test_start_flow_works_with_different_flows(self, flow_id):
         """Test that starting works with different flow configurations."""
         response = self.client.post(

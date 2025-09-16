@@ -4,15 +4,18 @@ import os
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///yeetflow.db")
 
+
 def get_db_connection() -> sqlite3.Connection:
     """Get a SQLite database connection."""
     conn = sqlite3.connect(DATABASE_URL.replace("sqlite:///", ""))
     conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
     return conn
 
+
 def init_db():
     """Initialize the database with basic tables."""
     create_tables()
+
 
 # Placeholder for migration functions
 def run_migrations():
@@ -20,13 +23,15 @@ def run_migrations():
     # TODO: Implement migration system (e.g., Alembic or custom)
     pass
 
+
 def create_tables():
     """Create database tables if they don't exist."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     # Create users table
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
@@ -34,10 +39,12 @@ def create_tables():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    ''')
-    
+    """
+    )
+
     # Create flows table
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS flows (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -47,10 +54,12 @@ def create_tables():
             updated_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
-    ''')
-    
+    """
+    )
+
     # Create runs table
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS runs (
             id TEXT PRIMARY KEY,
             flow_id TEXT NOT NULL,
@@ -63,10 +72,12 @@ def create_tables():
             FOREIGN KEY (flow_id) REFERENCES flows(id),
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
-    ''')
-    
+    """
+    )
+
     # Create sessions table
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             run_id TEXT NOT NULL,
@@ -76,10 +87,12 @@ def create_tables():
             updated_at TEXT NOT NULL,
             FOREIGN KEY (run_id) REFERENCES runs(id)
         )
-    ''')
-    
+    """
+    )
+
     # Create events table
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS events (
             id TEXT PRIMARY KEY,
             run_id TEXT NOT NULL,
@@ -88,8 +101,10 @@ def create_tables():
             timestamp TEXT NOT NULL,
             FOREIGN KEY (run_id) REFERENCES runs(id)
         )
-    ''')
-    
+    """
+    )
+
+
 def seed_test_data():
     """Seed test data for development and testing."""
     conn = get_db_connection()
@@ -97,35 +112,71 @@ def seed_test_data():
 
     try:
         # Seed test user
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?)
-        ''', (
-            'test-user-id',
-            'test@example.com',
-            'Test User',
-            '2025-09-16T10:00:00',
-            '2025-09-16T10:00:00'
-        ))
+        """,
+            (
+                "test-user-id",
+                "test@example.com",
+                "Test User",
+                "2025-09-16T10:00:00",
+                "2025-09-16T10:00:00",
+            ),
+        )
 
-        # Seed test flow
-        cursor.execute('''
-            INSERT OR IGNORE INTO flows (id, name, description, user_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            'test-flow',
-            'Test Flow',
-            'A test flow for development and testing',
-            'test-user-id',
-            '2025-09-16T10:00:00',
-            '2025-09-16T10:00:00'
-        ))
+        # Seed test flows for integration tests
+        test_flows = [
+            ("test-flow", "Test Flow", "A test flow for development and testing"),
+            (
+                "hitl-flow",
+                "HITL Flow",
+                "A flow that requires human-in-the-loop interaction",
+            ),
+            (
+                "auto-complete-flow",
+                "Auto Complete Flow",
+                "A flow that completes automatically",
+            ),
+            (
+                "pdf-generation-flow",
+                "PDF Generation Flow",
+                "A flow that generates PDF artifacts",
+            ),
+            (
+                "large-output-flow",
+                "Large Output Flow",
+                "A flow that generates large output files",
+            ),
+            (
+                "multi-hitl-flow",
+                "Multi HITL Flow",
+                "A flow with multiple human interaction points",
+            ),
+        ]
+
+        for flow_id, name, description in test_flows:
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO flows (id, name, description, user_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    flow_id,
+                    name,
+                    description,
+                    "test-user-id",
+                    "2025-09-16T10:00:00",
+                    "2025-09-16T10:00:00",
+                ),
+            )
 
         conn.commit()
         print("✅ Test data seeded successfully")
 
-    except Exception as e:
-        print(f"❌ Error seeding test data: {e}")
+    except sqlite3.Error as e:
+        print(f"❌ Database error seeding test data: {e}")
         conn.rollback()
     finally:
         conn.close()
