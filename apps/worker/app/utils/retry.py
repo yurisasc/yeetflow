@@ -12,9 +12,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 
-import aiohttp
 import httpx
-import requests
 
 logger = logging.getLogger(__name__)
 
@@ -205,8 +203,8 @@ def retry_db_operation(
                 sqlite3.OperationalError,
                 sqlite3.DatabaseError,
             ),
-            logger=logging.getLogger(__name__),
         ),
+        logger=logging.getLogger(__name__),
     )
 
 
@@ -233,15 +231,12 @@ def retry_network_operation(
             base_delay=base_delay,
             max_delay=max_delay,
             exceptions=(
-                aiohttp.ClientError,
-                aiohttp.ClientConnectionError,
-                requests.RequestException,
                 httpx.RequestError,
                 httpx.ConnectError,
                 httpx.HTTPStatusError,
                 ConnectionError,
                 TimeoutError,
             ),
-            logger=logging.getLogger(__name__),
         ),
+        logger=logging.getLogger(__name__),
     )
