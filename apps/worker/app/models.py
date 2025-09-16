@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from enum import Enum
 
@@ -7,16 +7,16 @@ class User(BaseModel):
     id: str
     email: str
     name: Optional[str] = None
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
+    updated_at: datetime = datetime.now(timezone.utc)
 
 class Flow(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
     user_id: str
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
+    updated_at: datetime = datetime.now(timezone.utc)
 
 class RunStatus(str, Enum):
     PENDING = "pending"
@@ -38,8 +38,8 @@ class Run(BaseModel):
     user_id: str
     status: RunStatus = RunStatus.PENDING
     session_url: Optional[str] = None
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
+    updated_at: datetime = datetime.now(timezone.utc)
     artifact_path: Optional[str] = None
 
 class Session(BaseModel):
@@ -47,12 +47,12 @@ class Session(BaseModel):
     run_id: str
     browser_session_id: Optional[str] = None
     steel_session_url: Optional[str] = None
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(timezone.utc)
+    updated_at: datetime = datetime.now(timezone.utc)
 
 class Event(BaseModel):
     id: str
     run_id: str
     type: EventType
     data: Optional[Dict[str, Any]] = None
-    timestamp: datetime = datetime.now()
+    timestamp: datetime = datetime.now(timezone.utc)
