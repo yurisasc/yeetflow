@@ -44,8 +44,16 @@ class TestStartFlowIntegration(BaseTestClass):
 
         run_id = response.json()["run_id"]
 
-        # Wait a bit for status to update
-        time.sleep(0.1)
+        # Poll for status update with timeout
+        max_retries = 10
+        for _ in range(max_retries):
+            get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
+            if get_response.json()["status"] == "running":
+                break
+            time.sleep(0.1)
+        else:
+            # If we didn't break, the status never became running
+            pytest.fail(f"Status did not transition to 'running' within {max_retries * 0.1} seconds")
 
         # Check status
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
