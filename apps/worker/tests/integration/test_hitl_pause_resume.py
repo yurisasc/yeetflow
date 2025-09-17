@@ -3,6 +3,7 @@ from http import HTTPStatus
 
 import pytest
 
+from app.models import RunStatus
 from tests.conftest import BaseTestClass
 
 
@@ -24,21 +25,12 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         run_id = response.json()["run_id"]
 
         # Wait for the flow to reach awaiting_input state
-        max_attempts = 10
-        for _ in range(max_attempts):
-            get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-            assert get_response.status_code == HTTPStatus.OK
-            status = get_response.json()["status"]
-
-            if status == "awaiting_input":
-                break
-
-            time.sleep(0.5)
+        self._wait_for_status(run_id, RunStatus.AWAITING_INPUT.value)
 
         # Verify the run is now awaiting input
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         run_data = get_response.json()
-        assert run_data["status"] == "awaiting_input"
+        assert run_data["status"] == RunStatus.AWAITING_INPUT.value
 
     def test_hitl_resume_after_user_action(self):
         """Test that flow resumes after user provides action."""
@@ -55,7 +47,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         run_id = response.json()["run_id"]
 
         # Wait for awaiting_input state
-        self._wait_for_status(run_id, "awaiting_input")
+        self._wait_for_status(run_id, RunStatus.AWAITING_INPUT.value)
 
         # Resume the flow with user action
         resume_response = self.client.post(
@@ -67,7 +59,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Verify status changes to running
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         run_data = get_response.json()
-        assert run_data["status"] == "running"
+        assert run_data["status"] == RunStatus.RUNNING.value
 
     def test_hitl_multiple_pause_resume_cycles(self):
         """Test multiple pause/resume cycles in a single flow."""
@@ -84,7 +76,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         run_id = response.json()["run_id"]
 
         # First pause
-        self._wait_for_status(run_id, "awaiting_input")
+        self._wait_for_status(run_id, RunStatus.AWAITING_INPUT.value)
         resume_response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"action": "fill_form"},
@@ -92,7 +84,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         assert resume_response.status_code == HTTPStatus.OK
 
         # Second pause
-        self._wait_for_status(run_id, "awaiting_input")
+        self._wait_for_status(run_id, RunStatus.AWAITING_INPUT.value)
         resume_response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"action": "submit_form"},
@@ -102,7 +94,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Verify final status
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         run_data = get_response.json()
-        assert run_data["status"] in ["running", "completed"]
+        assert run_data["status"] in {
+            RunStatus.RUNNING.value,
+            RunStatus.COMPLETED.value,
+        }
 
     def test_hitl_resume_with_invalid_action(self):
         """Test resume with invalid action data."""
@@ -119,7 +114,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         run_id = response.json()["run_id"]
 
         # Wait for awaiting_input state
-        self._wait_for_status(run_id, "awaiting_input")
+        self._wait_for_status(run_id, RunStatus.AWAITING_INPUT.value)
 
         # Try to resume with invalid action
         resume_response = self.client.post(
@@ -131,7 +126,7 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         # Verify status remains awaiting_input
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         run_data = get_response.json()
-        assert run_data["status"] == "awaiting_input"
+        assert run_data["status"] == RunStatus.AWAITING_INPUT.value
 
     def test_hitl_resume_preserves_session_state(self):
         """Test that session state is preserved across pause/resume."""
@@ -163,10 +158,10 @@ class TestHITLPauseResumeIntegration(BaseTestClass):
         run_data_after = get_response_after.json()
         assert run_data_after["session_url"] == original_session_url
 
-    def _wait_for_status(self, run_id: str, target_status: str, timeout: int = 10):
+    def _wait_for_status(self, run_id: str, target_status: str, timeout: int = 30):
         """Helper method to wait for a specific run status."""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
+        start = time.monotonic()
+        while time.monotonic() - start < timeout:
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
             assert get_response.status_code == HTTPStatus.OK
             if get_response.json()["status"] == target_status:

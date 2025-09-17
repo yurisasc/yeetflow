@@ -133,11 +133,9 @@ class TestCompletionArtifactIntegration(BaseTestClass):
         assert artifact_response.status_code == HTTPStatus.OK
 
         # Should have appropriate content type for PDF
-        if "content-type" in artifact_response.headers:
-            assert (
-                "pdf" in artifact_response.headers["content-type"].lower()
-                or "application" in artifact_response.headers["content-type"].lower()
-            )
+        ctype = artifact_response.headers.get("content-type", "").lower()
+        if ctype:
+            assert "application/pdf" in ctype
 
     def test_large_artifact_handling(self):
         """Test that large artifacts are handled correctly."""
@@ -187,8 +185,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
 
     def _wait_for_status(self, run_id: str, target_status: str, timeout: int = 30):
         """Helper method to wait for a specific run status."""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
+        start = time.monotonic()
+        while time.monotonic() - start < timeout:
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
             assert get_response.status_code == HTTPStatus.OK
             if get_response.json()["status"] == target_status:

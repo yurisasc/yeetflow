@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from app.models import RunStatus
 from tests.conftest import BaseTestClass
 
 
@@ -19,8 +20,8 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
-        # TODO: Put the run into awaiting_input state
-        # For now, assume we have a run in awaiting_input state
+        # Put the run into awaiting_input state
+        self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
 
         # Continue the run
         response = self.client.post(
@@ -54,6 +55,9 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
+        # Ensure the run is in running state (not awaiting_input)
+        self.set_run_status(run_id, RunStatus.RUNNING)
+
         # Try to continue a running run
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
@@ -75,7 +79,8 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
-        # TODO: Put run into awaiting_input state
+        # Put run into awaiting_input state
+        self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
 
         # Try without action data
         response = self.client.post(
@@ -99,7 +104,8 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
-        # TODO: Put run into awaiting_input state
+        # Put run into awaiting_input state
+        self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
 
         # Try with invalid action
         response = self.client.post(
@@ -121,11 +127,12 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
-        # TODO: Put run into awaiting_input state
+        # Put run into awaiting_input state
+        self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
+
         # Verify initial status
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         assert get_response.status_code == HTTPStatus.OK
-        initial_status = get_response.json()["status"]
 
         # Continue the run
         response = self.client.post(
@@ -134,9 +141,8 @@ class TestRunsContinuePostContract(BaseTestClass):
         )
         assert response.status_code == HTTPStatus.OK
 
-        # Verify status changed
+        # Verify status changed to running
         get_response_after = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         assert get_response_after.status_code == HTTPStatus.OK
         new_status = get_response_after.json()["status"]
-        if initial_status == "awaiting_input":
-            assert new_status == "running"
+        assert new_status == RunStatus.RUNNING

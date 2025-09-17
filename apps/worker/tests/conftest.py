@@ -12,8 +12,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import contextlib
 
 from app.constants import API_V1_PREFIX
-from app.db import seed_test_data
+from app.db import get_db_connection, seed_test_data
 from app.main import app
+from app.models import RunStatus
 
 # Set up any test-wide fixtures here if needed
 
@@ -22,6 +23,16 @@ class BaseTestClass:
     """Base test class with common utilities for API testing."""
 
     API_PREFIX = API_V1_PREFIX
+
+    def set_run_status(self, run_id: str, status: RunStatus):
+        """Helper method to set run status directly in the database."""
+        conn = get_db_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("UPDATE runs SET status = ? WHERE id = ?", (status, run_id))
+            conn.commit()
+        finally:
+            conn.close()
 
     def setup_method(self):
         """Set up test client before each test."""

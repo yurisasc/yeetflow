@@ -2,6 +2,7 @@ import logging
 import sqlite3
 import uuid
 from datetime import UTC, datetime
+from http import HTTPStatus
 from typing import Any
 
 from fastapi import HTTPException
@@ -35,7 +36,9 @@ class RunService:
                 # Validate flow exists
                 cursor.execute("SELECT id FROM flows WHERE id = ?", (flow_id,))
                 if not cursor.fetchone():
-                    raise HTTPException(status_code=400, detail="Flow not found")
+                    raise HTTPException(
+                        status_code=HTTPStatus.BAD_REQUEST, detail="Flow not found"
+                    )
 
                 # Create run record and commit immediately
                 created_at = datetime.now(UTC).isoformat()
@@ -99,7 +102,9 @@ class RunService:
                     ),
                 )
                 if cursor.rowcount == 0:
-                    raise HTTPException(status_code=404, detail="Run not found")
+                    raise HTTPException(
+                        status_code=HTTPStatus.NOT_FOUND, detail="Run not found"
+                    )
                 conn.commit()
             finally:
                 conn.close()
@@ -128,7 +133,9 @@ class RunService:
                     ),
                 )
                 if cursor.rowcount == 0:
-                    raise HTTPException(status_code=404, detail="Run not found")
+                    raise HTTPException(
+                        status_code=HTTPStatus.NOT_FOUND, detail="Run not found"
+                    )
                 conn.commit()
             finally:
                 conn.close()

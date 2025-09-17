@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 import socketio
@@ -6,7 +7,8 @@ import socketio
 logger = logging.getLogger(__name__)
 
 # Create Socket.IO server
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+allowed = os.getenv("SOCKETIO_CORS", "*").split(",")
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=allowed)
 
 # In-memory storage for connected clients (in production, use Redis or database)
 connected_clients: dict[str, str] = {}
@@ -31,7 +33,7 @@ async def disconnect(sid: str):
 async def join_run(sid: str, data: dict[str, Any]):
     """Join a specific run room for real-time updates."""
     run_id = data.get("run_id")
-    if run_id:
+    if isinstance(run_id, str) and run_id:
         await sio.enter_room(sid, run_id)
         logger.info("Client %s joined run room: %s", sid, run_id)
 
@@ -40,7 +42,7 @@ async def join_run(sid: str, data: dict[str, Any]):
 async def leave_run(sid: str, data: dict[str, Any]):
     """Leave a specific run room."""
     run_id = data.get("run_id")
-    if run_id:
+    if isinstance(run_id, str) and run_id:
         await sio.leave_room(sid, run_id)
         logger.info("Client %s left run room: %s", sid, run_id)
 

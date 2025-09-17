@@ -45,9 +45,7 @@ class TestRunsGetContract(BaseTestClass):
     def test_get_runs_invalid_id_format(self):
         """Test that GET /runs/{runId} validates run ID format."""
         response = self.client.get(f"{self.API_PREFIX}/runs/invalid@format")
-        assert (
-            response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        )  # Validation error
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_get_runs_includes_session_url_when_available(self):
         """Test that GET /runs/{runId} includes session_url when available."""

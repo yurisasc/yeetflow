@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Run lint-staged (formats & lints staged Python files)
-pnpm run lint-staged
+set -eu
+# Run lint-staged (formats & lints staged Python/TS files)
+pnpm run -s lint-staged

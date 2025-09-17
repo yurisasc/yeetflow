@@ -7,8 +7,10 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings=0",
     "lint:staged": "eslint --fix",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "format:staged": "prettier --write"
   },
   "dependencies": {

@@ -5,8 +5,10 @@
   "scripts": {
     "prepare": "husky install",
     "lint:web": "pnpm -C apps/web lint",
+    "lint:web:ci": "pnpm -C apps/web lint:ci",
     "format:web": "pnpm -C apps/web format",
     "lint:worker": "pnpm -C apps/worker lint",
+    "lint:worker:ci": "pnpm -C apps/worker lint",
     "format:worker": "pnpm -C apps/worker format",
     "lint-staged": "lint-staged"
   },
@@ -15,7 +17,7 @@
       "pnpm -C apps/worker format:staged --",
       "pnpm -C apps/worker lint:staged --"
     ],
-    "apps/web/**/*.ts": [
+    "apps/web/**/*.{ts,tsx}": [
       "pnpm -C apps/web format:staged --",
       "pnpm -C apps/web lint:staged --"
     ]

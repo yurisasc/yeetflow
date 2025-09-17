@@ -144,16 +144,11 @@ def retry(
     Decorator that implements retry logic with exponential backoff.
 
     Args:
-        max_attempts: Maximum number of retry attempts (including the first attempt)
-        base_delay: Base delay between retries in seconds
-        max_delay: Maximum delay between retries in seconds
-        exponential_base: Base for exponential backoff calculation
-        jitter: Whether to add random jitter to delays
-        exceptions: Tuple of exception types to catch and retry on
-        logger: Logger instance for retry messages
+        config: RetryConfig with attempts/delays/exceptions. If None, uses defaults.
+        logger: Optional Logger for retry messages.
 
     Returns:
-        Decorated function with retry logic
+        A decorator that wraps sync/async functions with retry behavior.
     """
     if config is None:
         config = RetryConfig()

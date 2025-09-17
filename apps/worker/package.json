@@ -13,6 +13,7 @@
     "lint:staged": "uv run ruff check --fix",
     "lint:statistics": "uv run ruff check . --statistics",
     "format": "uv run ruff format .",
-    "format:staged": "uv run ruff format"
+    "format:staged": "uv run ruff format",
+    "format:check": "uv run ruff format --check ."
   }
 }

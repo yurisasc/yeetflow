@@ -34,7 +34,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
         # Should return file content
         assert len(response.content) > 0
         # Should have appropriate content type
-        assert "content-type" in response.headers
+        assert response.headers.get("content-type")
 
     def test_get_runs_artifact_nonexistent_run_returns_404(self):
         """Test that GET /runs/{runId}/artifact returns 404 for nonexistent run."""
@@ -90,8 +90,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
         if response.status_code == HTTPStatus.OK:
-            assert "content-disposition" in response.headers
-            assert "attachment" in response.headers["content-disposition"]
+            assert response.headers.get("content-disposition")
+            assert "attachment" in response.headers.get("content-disposition", "")
 
     @pytest.mark.xfail(
         strict=False,
@@ -120,7 +120,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
         assert response.status_code == HTTPStatus.OK
 
         # Should have appropriate content type for file downloads
-        assert "content-type" in response.headers
+        assert response.headers.get("content-type")
 
         # Should have content-disposition header for file downloads
         assert "content-disposition" in response.headers

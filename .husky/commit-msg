@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+set -e
 # Enforce Conventional Commit messages
 pnpm exec commitlint --edit "$1"

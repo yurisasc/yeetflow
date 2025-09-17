@@ -1,4 +1,5 @@
 import logging
+from http import HTTPStatus
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -36,7 +37,7 @@ class GetRunResponse(BaseModel):
     updated_at: str
 
 
-@router.post("/runs", response_model=CreateRunResponse, status_code=201)
+@router.post("/runs", response_model=CreateRunResponse, status_code=HTTPStatus.CREATED)
 async def create_run(request: CreateRunRequest):
     """Create a new run, initialize Steel.dev session, and return run details."""
     run_id = str(uuid4())
@@ -74,7 +75,7 @@ async def create_run(request: CreateRunRequest):
                 },
             )
             raise HTTPException(
-                status_code=500,
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 detail="Failed to create browser session",
             )
 
@@ -92,7 +93,7 @@ async def create_run(request: CreateRunRequest):
                 },
             )
             raise HTTPException(
-                status_code=502,
+                status_code=HTTPStatus.BAD_GATEWAY,
                 detail="Session created without viewer URL",
             )
 
@@ -119,7 +120,7 @@ async def create_run(request: CreateRunRequest):
     except HTTPException:
         # Re-raise HTTPExceptions as-is
         raise
-    except Exception as e:
+    except Exception:
         # Handle any other errors
         logger.exception("Error creating run")
         try:
@@ -127,8 +128,8 @@ async def create_run(request: CreateRunRequest):
         except Exception:
             logger.exception("Error during cleanup")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create run: {e!s}",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail="Failed to create run",
         ) from None
 
 
@@ -139,7 +140,10 @@ async def get_run(run_id: str):
     try:
         UUID(run_id, version=4)
     except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid run ID format") from None
+        raise HTTPException(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            detail="Invalid run ID format",
+        ) from None
 
     run_service = RunService()
 
@@ -147,7 +151,9 @@ async def get_run(run_id: str):
         run = await run_service.get_run_by_id(run_id)
 
         if not run:
-            raise HTTPException(status_code=404, detail="Run not found")
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND, detail="Run not found"
+            )
 
         return GetRunResponse(
             run_id=run["id"],
@@ -161,9 +167,9 @@ async def get_run(run_id: str):
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error getting run")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get run: {e!s}",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail="Failed to get run",
         ) from None
