@@ -1,5 +1,31 @@
 {
   "name": "yeetflow",
   "private": true,
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "scripts": {
+    "prepare": "husky install",
+    "lint:web": "pnpm -C apps/web lint",
+    "lint:web:ci": "pnpm -C apps/web lint:ci",
+    "format:web": "pnpm -C apps/web format",
+    "lint:worker": "pnpm -C apps/worker lint",
+    "lint:worker:ci": "pnpm -C apps/worker lint",
+    "format:worker": "pnpm -C apps/worker format",
+    "lint-staged": "lint-staged"
+  },
+  "lint-staged": {
+    "apps/worker/**/*.py": [
+      "pnpm -C apps/worker format:staged --",
+      "pnpm -C apps/worker lint:staged --"
+    ],
+    "apps/web/**/*.{ts,tsx}": [
+      "pnpm -C apps/web format:staged --",
+      "pnpm -C apps/web lint:staged --"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.2.10"
+  }
 }

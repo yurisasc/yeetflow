@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from tests.conftest import BaseTestClass
 
 
@@ -5,7 +7,7 @@ class TestRunsGetContract(BaseTestClass):
     """Contract tests for GET /runs/{runId} endpoint."""
 
     def test_get_runs_returns_200_with_status(self):
-        """Test that GET /runs/{runId} returns 200 with run status."""
+        """Test that GET /runs/{runId} returns HTTPStatus.OK with run status."""
         # First create a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -14,12 +16,12 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Then get the run
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         data = response.json()
         assert "status" in data
         assert data["status"] in [
@@ -33,17 +35,17 @@ class TestRunsGetContract(BaseTestClass):
         assert data["run_id"] == run_id
 
     def test_get_runs_nonexistent_returns_404(self):
-        """Test that GET /runs/{runId} returns 404 for nonexistent run."""
+        """Test that GET /runs/{runId} returns NOT_FOUND for nonexistent run."""
         # Use a valid UUID format that doesn't exist in database
         nonexistent_uuid = "091384b9-afe5-429c-8cba-abdff02fb79c"
         response = self.client.get(f"{self.API_PREFIX}/runs/{nonexistent_uuid}")
-        assert response.status_code == 404
+        assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
 
     def test_get_runs_invalid_id_format(self):
         """Test that GET /runs/{runId} validates run ID format."""
         response = self.client.get(f"{self.API_PREFIX}/runs/invalid@format")
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_get_runs_includes_session_url_when_available(self):
         """Test that GET /runs/{runId} includes session_url when available."""
@@ -55,12 +57,12 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Get the run
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         data = response.json()
         if "session_url" in data:
             assert data["session_url"].startswith("https://")
@@ -75,12 +77,12 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Initial status should be running or pending
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         initial_status = response.json()["status"]
         assert initial_status in ["pending", "running"]
 
@@ -94,12 +96,12 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         initial_data = response.json()
         initial_status = initial_data["status"]
 
@@ -122,12 +124,12 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         initial_data = response.json()
         initial_status = initial_data["status"]
 
@@ -141,7 +143,7 @@ class TestRunsGetContract(BaseTestClass):
         # 3. Verify error details are captured
 
     def test_get_runs_status_transition_to_awaiting_input(self):
-        """Test that run status transitions to awaiting_input when human input needed."""
+        """Test run status transitions to awaiting_input when human input needed."""
         # Create a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -150,12 +152,12 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
+        assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["run_id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         initial_data = response.json()
         initial_status = initial_data["status"]
 
@@ -178,8 +180,8 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
-        run_id = create_response.json()["run_id"]
+        assert create_response.status_code == HTTPStatus.CREATED
+        create_response.json()["run_id"]
 
         # TODO: When status transition logic exists, this test should:
         # 1. Force a run to completed status (via direct DB update for testing)
@@ -196,8 +198,8 @@ class TestRunsGetContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert create_response.status_code == 201
-        run_id = create_response.json()["run_id"]
+        assert create_response.status_code == HTTPStatus.CREATED
+        create_response.json()["run_id"]
 
         # TODO: When status transition logic exists, this test should:
         # 1. Force a run to failed status (via direct DB update for testing)

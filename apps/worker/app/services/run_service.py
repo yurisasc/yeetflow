@@ -1,13 +1,15 @@
-import sqlite3
 import logging
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+import sqlite3
 import uuid
+from datetime import UTC, datetime
+from http import HTTPStatus
+from typing import Any
 
 from fastapi import HTTPException
-from ..db import get_db_connection
-from ..models import RunStatus
-from ..utils.retry import retry_db_operation
+
+from app.db import get_db_connection
+from app.models import RunStatus
+from app.utils.retry import retry_db_operation
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +22,11 @@ class RunService:
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def create_run_with_transaction(
-        self, run_id: str, flow_id: str, user_id: str
-    ) -> Dict[str, Any]:
+        self,
+        run_id: str,
+        flow_id: str,
+        user_id: str,
+    ) -> dict[str, Any]:
         """Create a run record (autocommit) and return the created run data."""
         try:
             conn = get_db_connection()
@@ -31,13 +36,17 @@ class RunService:
                 # Validate flow exists
                 cursor.execute("SELECT id FROM flows WHERE id = ?", (flow_id,))
                 if not cursor.fetchone():
-                    raise HTTPException(status_code=400, detail="Flow not found")
+                    raise HTTPException(
+                        status_code=HTTPStatus.BAD_REQUEST, detail="Flow not found"
+                    )
 
                 # Create run record and commit immediately
-                created_at = datetime.now(timezone.utc).isoformat()
+                created_at = datetime.now(UTC).isoformat()
                 cursor.execute(
                     """
-                    INSERT INTO runs (id, flow_id, user_id, status, created_at, updated_at)
+                    INSERT INTO runs (
+                        id, flow_id, user_id, status, created_at, updated_at
+                    )
                     VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
@@ -63,13 +72,16 @@ class RunService:
             finally:
                 conn.close()
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error creating run: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error creating run")
             raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def update_run_with_session(
-        self, run_id: str, session_url: str, status: RunStatus
+        self,
+        run_id: str,
+        session_url: str,
+        status: RunStatus,
     ) -> None:
         """Update run with session URL and status."""
         try:
@@ -78,25 +90,27 @@ class RunService:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    UPDATE runs 
-                    SET session_url = ?, status = ?, updated_at = ? 
+                    UPDATE runs
+                    SET session_url = ?, status = ?, updated_at = ?
                     WHERE id = ?
                     """,
                     (
                         session_url,
                         status.value,
-                        datetime.now(timezone.utc).isoformat(),
+                        datetime.now(UTC).isoformat(),
                         run_id,
                     ),
                 )
                 if cursor.rowcount == 0:
-                    raise HTTPException(status_code=404, detail="Run not found")
+                    raise HTTPException(
+                        status_code=HTTPStatus.NOT_FOUND, detail="Run not found"
+                    )
                 conn.commit()
             finally:
                 conn.close()
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error updating run with session: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error updating run with session")
             raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
@@ -108,29 +122,34 @@ class RunService:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    UPDATE runs 
-                    SET status = ?, updated_at = ? 
+                    UPDATE runs
+                    SET status = ?, updated_at = ?
                     WHERE id = ?
                     """,
                     (
                         status.value,
-                        datetime.now(timezone.utc).isoformat(),
+                        datetime.now(UTC).isoformat(),
                         run_id,
                     ),
                 )
                 if cursor.rowcount == 0:
-                    raise HTTPException(status_code=404, detail="Run not found")
+                    raise HTTPException(
+                        status_code=HTTPStatus.NOT_FOUND, detail="Run not found"
+                    )
                 conn.commit()
             finally:
                 conn.close()
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error updating run status: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error updating run status")
             raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
     async def create_session_record(
-        self, run_id: str, browser_session_id: str, session_url: str
+        self,
+        run_id: str,
+        browser_session_id: str,
+        session_url: str,
     ) -> str:
         """Create a session record and return session_id."""
         session_id = str(uuid.uuid4())
@@ -140,7 +159,10 @@ class RunService:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    INSERT INTO sessions (id, run_id, browser_session_id, steel_session_url, created_at, updated_at)
+                    INSERT INTO sessions (
+                        id, run_id, browser_session_id,
+                        steel_session_url, created_at, updated_at
+                    )
                     VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
@@ -148,8 +170,8 @@ class RunService:
                         run_id,
                         browser_session_id,
                         session_url,
-                        datetime.now(timezone.utc).isoformat(),
-                        datetime.now(timezone.utc).isoformat(),
+                        datetime.now(UTC).isoformat(),
+                        datetime.now(UTC).isoformat(),
                     ),
                 )
                 conn.commit()
@@ -157,12 +179,12 @@ class RunService:
             finally:
                 conn.close()
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error creating session: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error creating session")
             raise
 
     @retry_db_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)
-    async def get_run_by_id(self, run_id: str) -> Optional[Dict[str, Any]]:
+    async def get_run_by_id(self, run_id: str) -> dict[str, Any] | None:
         """Get run details by ID."""
         try:
             conn = get_db_connection()
@@ -170,7 +192,8 @@ class RunService:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT id, flow_id, user_id, status, session_url, created_at, updated_at
+                    SELECT id, flow_id, user_id, status,
+                           session_url, created_at, updated_at
                     FROM runs WHERE id = ?
                     """,
                     (run_id,),
@@ -191,22 +214,22 @@ class RunService:
             finally:
                 conn.close()
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error getting run: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error getting run")
             raise
 
     async def commit_transaction(self, conn: sqlite3.Connection) -> None:
         """Commit the current transaction."""
         try:
             conn.commit()
-        except sqlite3.Error as e:
-            logger.exception(f"Database error committing transaction: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error committing transaction")
             raise
 
     async def rollback_transaction(self, conn: sqlite3.Connection) -> None:
         """Rollback the current transaction."""
         try:
             conn.rollback()
-        except sqlite3.Error as e:
-            logger.exception(f"Database error rolling back transaction: {e}")
+        except sqlite3.Error:
+            logger.exception("Database error rolling back transaction")
             # Don't raise here since we're already in error handling

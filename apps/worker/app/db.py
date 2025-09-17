@@ -1,6 +1,6 @@
-import sqlite3
-import os
 import logging
+import os
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,6 @@ def init_db():
 def run_migrations():
     """Run database migrations."""
     # TODO: Implement migration system (e.g., Alembic or custom)
-    pass
 
 
 def create_tables():
@@ -46,7 +45,7 @@ def create_tables():
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
-        """
+        """,
         )
 
         # Create flows table
@@ -61,7 +60,7 @@ def create_tables():
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
-        """
+        """,
         )
 
         # Create runs table
@@ -79,7 +78,7 @@ def create_tables():
                 FOREIGN KEY (flow_id) REFERENCES flows(id),
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
-        """
+        """,
         )
 
         # Create sessions table
@@ -94,7 +93,7 @@ def create_tables():
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY (run_id) REFERENCES runs(id)
             )
-        """
+        """,
         )
 
         # Create events table
@@ -108,13 +107,13 @@ def create_tables():
                 timestamp TEXT NOT NULL,
                 FOREIGN KEY (run_id) REFERENCES runs(id)
             )
-        """
+        """,
         )
 
         conn.commit()
 
-    except sqlite3.Error as e:
-        logger.error(f"❌ Database error creating tables: {e}")
+    except sqlite3.Error:
+        logger.exception("❌ Database error creating tables")
         conn.rollback()
 
     finally:
@@ -180,9 +179,11 @@ def seed_test_data():
         for flow_id, name, description in test_flows:
             cursor.execute(
                 """
-                INSERT OR IGNORE INTO flows (id, name, description, user_id, created_at, updated_at)
+                INSERT OR IGNORE INTO flows (
+                    id, name, description, user_id, created_at, updated_at
+                )
                 VALUES (?, ?, ?, ?, ?, ?)
-            """,
+                """,
                 (
                     flow_id,
                     name,
@@ -196,8 +197,8 @@ def seed_test_data():
         conn.commit()
         logger.info("✅ Test data seeded successfully")
 
-    except sqlite3.Error as e:
-        logger.error(f"❌ Database error seeding test data: {e}")
+    except sqlite3.Error:
+        logger.exception("❌ Database error seeding test data")
         conn.rollback()
     finally:
         conn.close()

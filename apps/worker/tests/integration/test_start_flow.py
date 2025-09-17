@@ -1,5 +1,8 @@
-import pytest
 import time
+from http import HTTPStatus
+
+import pytest
+
 from tests.conftest import BaseTestClass
 
 
@@ -16,7 +19,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         data = response.json()
         assert "run_id" in data
@@ -28,7 +31,7 @@ class TestStartFlowIntegration(BaseTestClass):
 
         # Verify the run was created
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert get_response.status_code == 200
+        assert get_response.status_code == HTTPStatus.OK
         run_data = get_response.json()
         assert run_data["run_id"] == run_id
         assert run_data["status"] in ["pending", "running"]
@@ -46,7 +49,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         run_id = response.json()["run_id"]
 
@@ -54,7 +57,7 @@ class TestStartFlowIntegration(BaseTestClass):
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
             get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-            assert get_response.status_code == 200
+            assert get_response.status_code == HTTPStatus.OK
             if get_response.json().get("status") == "running":
                 break
             time.sleep(0.05)
@@ -63,7 +66,7 @@ class TestStartFlowIntegration(BaseTestClass):
 
         # Check status
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert get_response.status_code == 200
+        assert get_response.status_code == HTTPStatus.OK
         run_data = get_response.json()
         assert run_data["status"] == "running"
 
@@ -77,7 +80,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response1.status_code == 201
+        assert response1.status_code == HTTPStatus.CREATED
         run_id1 = response1.json()["run_id"]
 
         # Start second flow
@@ -88,7 +91,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response2.status_code == 201
+        assert response2.status_code == HTTPStatus.CREATED
         run_id2 = response2.json()["run_id"]
 
         # Verify they are different
@@ -104,7 +107,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
         session_url = response.json()["session_url"]
 
         assert "steel.dev" in session_url or "localhost" in session_url
@@ -116,7 +119,7 @@ class TestStartFlowIntegration(BaseTestClass):
 
         # For now, test sequential requests
         responses = []
-        for i in range(3):
+        for _i in range(3):
             response = self.client.post(
                 f"{self.API_PREFIX}/runs",
                 json={
@@ -125,7 +128,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 },
             )
             responses.append(response)
-            assert response.status_code == 201
+            assert response.status_code == HTTPStatus.CREATED
 
         # Verify all runs are created
         run_ids = [r.json()["run_id"] for r in responses]
@@ -148,7 +151,7 @@ class TestStartFlowIntegration(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTPStatus.CREATED
 
         data = response.json()
         assert "run_id" in data
@@ -156,4 +159,4 @@ class TestStartFlowIntegration(BaseTestClass):
 
         # Verify the run
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{data['run_id']}")
-        assert get_response.status_code == 200
+        assert get_response.status_code == HTTPStatus.OK
