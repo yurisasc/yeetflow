@@ -90,26 +90,38 @@ class Run(RunBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    flow_id: UUID = Field(sa_column=Column(ForeignKey("flow.id", ondelete="CASCADE")))
-    user_id: UUID = Field(sa_column=Column(ForeignKey("user.id", ondelete="CASCADE")))
+    flow_id: UUID = Field(
+        sa_column=Column(ForeignKey("flow.id", ondelete="CASCADE"), nullable=False)
+    )
+    user_id: UUID = Field(
+        sa_column=Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    )
 
     flow: Flow | None = Relationship(back_populates="runs")
     user: User | None = Relationship(back_populates="runs")
-    sessions: list["Session"] = Relationship(back_populates="run", cascade_delete=True)
-    events: list["Event"] = Relationship(back_populates="run", cascade_delete=True)
+    sessions: list["Session"] = Relationship(
+        back_populates="run", cascade_delete=True, passive_deletes="all"
+    )
+    events: list["Event"] = Relationship(
+        back_populates="run", cascade_delete=True, passive_deletes="all"
+    )
 
 
 class Session(SessionBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
-    run_id: UUID = Field(sa_column=Column(ForeignKey("run.id", ondelete="CASCADE")))
+    run_id: UUID = Field(
+        sa_column=Column(ForeignKey("run.id", ondelete="CASCADE"), nullable=False)
+    )
     run: Run | None = Relationship(back_populates="sessions")
 
 
 class Event(EventBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
-    run_id: UUID = Field(sa_column=Column(ForeignKey("run.id", ondelete="CASCADE")))
+    run_id: UUID = Field(
+        sa_column=Column(ForeignKey("run.id", ondelete="CASCADE"), nullable=False)
+    )
     run: Run | None = Relationship(back_populates="events")
 
 

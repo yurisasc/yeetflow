@@ -4,7 +4,7 @@ from http import HTTPStatus
 import httpx
 
 from app.config import settings
-from app.utils.retry import retry_network_operation, should_retry_response
+from app.utils.retry import retry_network_operation, should_retry_http_response
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class SteelService:
                 },
             )
 
-            if should_retry_response(response):
+            if should_retry_http_response(response):
                 response.raise_for_status()
 
             if response.status_code != HTTPStatus.CREATED:
@@ -82,7 +82,7 @@ class SteelService:
                 headers={"steel-api-key": self.api_key},
             )
 
-            if should_retry_response(response):
+            if should_retry_http_response(response):
                 response.raise_for_status()
 
             success = response.status_code in (HTTPStatus.OK, HTTPStatus.NO_CONTENT)

@@ -108,6 +108,11 @@ async def _run_with_retries_async(
             return await func(*args, **kwargs)
         except runtime.config.exceptions as e:  # type: ignore[misc]
             last_exception = e
+            # If this is an HTTPStatusError, only retry on allowed statuses
+            if isinstance(e, httpx.HTTPStatusError):
+                resp = getattr(e, "response", None)
+                if resp is not None and not should_retry_http_response(resp):
+                    raise
             if attempt == runtime.config.max_attempts - 1:
                 break
             delay = _compute_delay(
@@ -137,6 +142,11 @@ def _run_with_retries_sync(
             return func(*args, **kwargs)
         except runtime.config.exceptions as e:  # type: ignore[misc]
             last_exception = e
+            # If this is an HTTPStatusError, only retry on allowed statuses
+            if isinstance(e, httpx.HTTPStatusError):
+                resp = getattr(e, "response", None)
+                if resp is not None and not should_retry_http_response(resp):
+                    raise
             if attempt == runtime.config.max_attempts - 1:
                 break
             delay = _compute_delay(
