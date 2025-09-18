@@ -9,10 +9,9 @@ logger = logging.getLogger(__name__)
 
 # Create Socket.IO server
 socketio_config = get_socketio_config()
-sio = socketio.AsyncServer(
-    async_mode="asgi",
-    cors_allowed_origins=socketio_config["cors_allowed_origins"],
-)
+origins = [o.strip() for o in socketio_config["cors_allowed_origins"] if o.strip()]
+cors_allowed = "*" if origins == ["*"] or not origins else origins
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_allowed)
 
 # In-memory storage for connected clients (in production, use Redis or database)
 connected_clients: dict[str, str] = {}

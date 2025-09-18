@@ -4,8 +4,7 @@ from http import HTTPStatus
 import httpx
 
 from app.config import settings
-from app.constants import SERVER_ERROR_MAX
-from app.utils.retry import retry_network_operation
+from app.utils.retry import retry_network_operation, should_retry_response
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +15,9 @@ class SteelService:
     def __init__(self):
         self.api_key = settings.steel_api_key
         self.dev_mode = not bool(self.api_key)
-        if not self.dev_mode:
-            self.base_url = "https://api.steel.dev/v1"
-        else:
+        self.base_url = "https://api.steel.dev/v1"
+        if self.dev_mode:
             logger.warning("Running in development mode - using mock Steel sessions")
-            self.base_url = "https://api.steel.dev/v1"
 
     @retry_network_operation()
     async def create_session(self) -> dict | None:
@@ -49,12 +46,7 @@ class SteelService:
                 },
             )
 
-            if (
-                response.status_code == HTTPStatus.TOO_MANY_REQUESTS
-                or HTTPStatus.INTERNAL_SERVER_ERROR
-                <= response.status_code
-                < SERVER_ERROR_MAX
-            ):
+            if should_retry_response(response):
                 response.raise_for_status()
 
             if response.status_code != HTTPStatus.CREATED:
@@ -90,12 +82,7 @@ class SteelService:
                 headers={"steel-api-key": self.api_key},
             )
 
-            if (
-                response.status_code == HTTPStatus.TOO_MANY_REQUESTS
-                or HTTPStatus.INTERNAL_SERVER_ERROR
-                <= response.status_code
-                < SERVER_ERROR_MAX
-            ):
+            if should_retry_response(response):
                 response.raise_for_status()
 
             success = response.status_code in (HTTPStatus.OK, HTTPStatus.NO_CONTENT)

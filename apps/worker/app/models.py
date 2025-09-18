@@ -4,8 +4,10 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ConfigDict
+from pydantic import Field as PydField
 from sqlalchemy.dialects.sqlite import JSON
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, ForeignKey, Relationship, SQLModel
 
 
 class UserBase(SQLModel):
@@ -18,7 +20,7 @@ class FlowBase(SQLModel):
     key: str = Field(index=True, unique=True)
     name: str
     description: str | None = None
-    config: dict[str, Any] | None = Field(default_factory=dict, sa_type=JSON)
+    config: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
 
 
 class RunStatus(str, Enum):
@@ -54,9 +56,9 @@ class SessionBase(SQLModel):
 
 
 class EventBase(SQLModel):
-    type: str
+    type: EventType
     message: str | None = None
-    payload: dict[str, Any] | None = Field(default_factory=dict, sa_type=JSON)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
     at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -76,8 +78,10 @@ class Flow(FlowBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    user_id: UUID = Field(foreign_key="user.id", ondelete="CASCADE")
-    user: User = Relationship(back_populates="flows")
+    created_by: UUID = Field(
+        sa_column=Column(ForeignKey("user.id", ondelete="CASCADE"))
+    )
+    user: User | None = Relationship(back_populates="flows")
     runs: list["Run"] = Relationship(back_populates="flow")
 
 
@@ -86,11 +90,11 @@ class Run(RunBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    flow_id: UUID = Field(foreign_key="flow.id", ondelete="CASCADE")
-    user_id: UUID = Field(foreign_key="user.id", ondelete="CASCADE")
+    flow_id: UUID = Field(sa_column=Column(ForeignKey("flow.id", ondelete="CASCADE")))
+    user_id: UUID = Field(sa_column=Column(ForeignKey("user.id", ondelete="CASCADE")))
 
-    flow: Flow = Relationship(back_populates="runs")
-    user: User = Relationship(back_populates="runs")
+    flow: Flow | None = Relationship(back_populates="runs")
+    user: User | None = Relationship(back_populates="runs")
     sessions: list["Session"] = Relationship(back_populates="run", cascade_delete=True)
     events: list["Event"] = Relationship(back_populates="run", cascade_delete=True)
 
@@ -98,25 +102,27 @@ class Run(RunBase, table=True):
 class Session(SessionBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
-    run_id: UUID = Field(foreign_key="run.id", ondelete="CASCADE")
-    run: Run = Relationship(back_populates="sessions")
+    run_id: UUID = Field(sa_column=Column(ForeignKey("run.id", ondelete="CASCADE")))
+    run: Run | None = Relationship(back_populates="sessions")
 
 
 class Event(EventBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
-    run_id: UUID = Field(foreign_key="run.id", ondelete="CASCADE")
-    run: Run = Relationship(back_populates="events")
+    run_id: UUID = Field(sa_column=Column(ForeignKey("run.id", ondelete="CASCADE")))
+    run: Run | None = Relationship(back_populates="events")
 
 
 # API models
 class UserCreate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     email: str
     name: str | None = None
     password: str
 
 
 class UserRead(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     email: str
     name: str | None = None
@@ -126,18 +132,21 @@ class UserRead(PydanticBaseModel):
 
 
 class UserUpdate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     name: str | None = None
     password: str | None = None
 
 
 class FlowCreate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     key: str
     name: str
     description: str | None = None
-    config: dict = {}
+    config: dict = PydField(default_factory=dict)
 
 
 class FlowRead(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     key: str
     name: str
@@ -148,11 +157,13 @@ class FlowRead(PydanticBaseModel):
 
 
 class RunCreate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     flow_id: UUID
     user_id: UUID
 
 
 class RunRead(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     flow_id: UUID
     user_id: UUID
@@ -166,6 +177,7 @@ class RunRead(PydanticBaseModel):
 
 
 class RunUpdate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     status: RunStatus | None = None
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -174,6 +186,7 @@ class RunUpdate(PydanticBaseModel):
 
 
 class SessionCreate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     run_id: UUID
     browser_provider_session_id: str | None = None
     status: str = "pending"
@@ -181,6 +194,7 @@ class SessionCreate(PydanticBaseModel):
 
 
 class SessionRead(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     run_id: UUID
     browser_provider_session_id: str | None = None
@@ -191,16 +205,18 @@ class SessionRead(PydanticBaseModel):
 
 
 class EventCreate(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     run_id: UUID
-    type: str
+    type: EventType
     message: str | None = None
-    payload: dict = {}
+    payload: dict = PydField(default_factory=dict)
 
 
 class EventRead(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     run_id: UUID
-    type: str
+    type: EventType
     message: str | None = None
     payload: dict
     at: datetime

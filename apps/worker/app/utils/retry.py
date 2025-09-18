@@ -9,6 +9,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
+from http import HTTPStatus
 from typing import Any
 
 import httpx
@@ -16,6 +17,22 @@ import httpx
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+HTTP_RETRY_STATUSES = {
+    HTTPStatus.TOO_MANY_REQUESTS,  # 429
+    HTTPStatus.REQUEST_TIMEOUT,  # 408
+    HTTPStatus.INTERNAL_SERVER_ERROR,  # 500
+    HTTPStatus.NOT_IMPLEMENTED,  # 501
+    HTTPStatus.BAD_GATEWAY,  # 502
+    HTTPStatus.SERVICE_UNAVAILABLE,  # 503
+    HTTPStatus.GATEWAY_TIMEOUT,  # 504
+    HTTPStatus.HTTP_VERSION_NOT_SUPPORTED,  # 505
+}
+
+
+def should_retry_http_response(response: httpx.Response) -> bool:
+    """Check if an HTTP response should trigger a retry."""
+    return response.status_code in HTTP_RETRY_STATUSES
 
 
 class RetryError(Exception):
@@ -54,10 +71,10 @@ def _compute_delay(
     *,
     add_jitter: bool,
 ) -> float:
-    delay = min(base * (exp_base**attempt), max_d)
+    delay = base * (exp_base**attempt)
     if add_jitter:
         delay *= 0.5 + random.random()
-    return delay
+    return min(delay, max_d)
 
 
 def _log_retry(

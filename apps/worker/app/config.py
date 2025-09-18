@@ -6,13 +6,26 @@ All environment variables are loaded and validated here.
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
+# Default configuration values
+DEFAULT_DATABASE_URL = "sqlite:///yeetflow.db"
+DEFAULT_HOST = "0.0.0.0"  # noqa: S104
+DEFAULT_PORT = 8000
+DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_SECRET_KEY = "dev-secret-key-change-in-production"  # noqa: S105
+DEFAULT_RETRY_MAX_ATTEMPTS = 3
+DEFAULT_RETRY_BASE_DELAY = 1.0
+DEFAULT_RETRY_MAX_DELAY = 30.0
+DEFAULT_API_TOKEN = ""
+DEFAULT_ARTIFACTS_DIR = "./artifacts"
+DEFAULT_SOCKETIO_CORS = "*"
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Database configuration
     database_url: str = Field(
-        default="sqlite:///yeetflow.db",
+        default=DEFAULT_DATABASE_URL,
         description="Database URL (SQLite for MVP)",
     )
 
@@ -29,57 +42,57 @@ class Settings(BaseSettings):
     )
 
     host: str = Field(
-        default="0.0.0.0",  # noqa: S104
+        default=DEFAULT_HOST,
         description="Host to bind the server to",
     )
 
     port: int = Field(
-        default=8000,
+        default=DEFAULT_PORT,
         description="Port to bind the server to",
     )
 
     # Logging configuration
     log_level: str = Field(
-        default="INFO",
+        default=DEFAULT_LOG_LEVEL,
         description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
 
     # Security settings
     secret_key: str = Field(
-        default="dev-secret-key-change-in-production",
+        default=DEFAULT_SECRET_KEY,
         description="Secret key for JWT tokens and encryption",
     )
 
     # Retry configuration
     retry_max_attempts: int = Field(
-        default=3,
+        default=DEFAULT_RETRY_MAX_ATTEMPTS,
         description="Maximum retry attempts for network operations",
     )
 
     retry_base_delay: float = Field(
-        default=1.0,
+        default=DEFAULT_RETRY_BASE_DELAY,
         description="Base delay for exponential backoff in seconds",
     )
 
     retry_max_delay: float = Field(
-        default=30.0,
+        default=DEFAULT_RETRY_MAX_DELAY,
         description="Maximum delay for exponential backoff in seconds",
     )
 
     # Additional configuration
     api_token: str = Field(
-        default="",
+        default=DEFAULT_API_TOKEN,
         description="API token for authentication",
     )
 
     artifacts_dir: str = Field(
-        default="./artifacts",
+        default=DEFAULT_ARTIFACTS_DIR,
         description="Directory for storing artifacts",
     )
 
     # Socket.IO configuration
     socketio_cors: str = Field(
-        default="*",
+        default=DEFAULT_SOCKETIO_CORS,
         description="CORS allowed origins for Socket.IO (comma-separated)",
     )
 
@@ -87,6 +100,11 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+
+    def model_post_init(self, _) -> None:
+        if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
+            msg = "SECRET_KEY must be set in production"
+            raise ValueError(msg)
 
 
 # Global settings instance
@@ -97,8 +115,8 @@ settings = Settings()
 def get_database_url() -> str:
     """Get the database URL, converting SQLite to async format if needed."""
     url = settings.database_url
-    if url.startswith("sqlite:///"):
-        return url.replace("sqlite:///", "sqlite+aiosqlite:///")
+    if url.startswith("sqlite:") and not url.startswith("sqlite+aiosqlite:"):
+        return "sqlite+aiosqlite:" + url[len("sqlite:") :]
     return url
 
 
@@ -127,7 +145,6 @@ def get_retry_config() -> dict:
 
 def get_socketio_config() -> dict:
     """Get Socket.IO configuration."""
-    return {
-        "cors_allowed_origins": settings.socketio_cors.split(","),
-        "cors_enabled": True,
-    }
+    raw = settings.socketio_cors.strip()
+    origins = "*" if raw == "*" else [o.strip() for o in raw.split(",") if o.strip()]
+    return {"cors_allowed_origins": origins, "cors_enabled": True}
