@@ -16,6 +16,7 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "greenlet>=3.2.4",
     "pydantic-settings>=2.10.1",
+    "alembic>=1.16.5",
 ]
 
 [tool.uv]
@@ -96,3 +97,10 @@ packages = ["app"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.scripts]
+db-upgrade = "alembic.config:main"
+db-downgrade = "alembic.config:main"
+db-current = "alembic.config:main"
+db-history = "alembic.config:main"
+db-revision = "alembic.config:main"

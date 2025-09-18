@@ -14,6 +14,13 @@
     "lint:statistics": "uv run ruff check . --statistics",
     "format": "uv run ruff format .",
     "format:staged": "uv run ruff format",
-    "format:check": "uv run ruff format --check ."
+    "format:check": "uv run ruff format --check .",
+    "db:current": "uv run alembic current",
+    "db:history": "uv run alembic history",
+    "db:upgrade": "uv run alembic upgrade head",
+    "db:downgrade": "uv run alembic downgrade -1",
+    "db:reset": "uv run alembic downgrade base",
+    "db:migrate": "uv run alembic revision --autogenerate -m",
+    "db:stamp": "uv run alembic stamp head"
   }
 }
