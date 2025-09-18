@@ -79,7 +79,9 @@ class Flow(FlowBase, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     created_by: UUID = Field(
-        sa_column=Column(ForeignKey("user.id", ondelete="CASCADE"))
+        sa_column=Column(
+            ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+        )
     )
     user: User | None = Relationship(back_populates="flows")
     runs: list["Run"] = Relationship(back_populates="flow")
@@ -100,11 +102,9 @@ class Run(RunBase, table=True):
     flow: Flow | None = Relationship(back_populates="runs")
     user: User | None = Relationship(back_populates="runs")
     sessions: list["Session"] = Relationship(
-        back_populates="run", cascade_delete=True, passive_deletes="all"
+        back_populates="run", passive_deletes="all"
     )
-    events: list["Event"] = Relationship(
-        back_populates="run", cascade_delete=True, passive_deletes="all"
-    )
+    events: list["Event"] = Relationship(back_populates="run", passive_deletes="all")
 
 
 class Session(SessionBase, table=True):
