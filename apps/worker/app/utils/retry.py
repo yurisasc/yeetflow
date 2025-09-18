@@ -5,16 +5,34 @@ Retry utilities with exponential backoff for handling transient failures.
 import asyncio
 import logging
 import random
-import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
+from http import HTTPStatus
 from typing import Any
 
 import httpx
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
+
+HTTP_RETRY_STATUSES = {
+    HTTPStatus.TOO_MANY_REQUESTS,  # 429
+    HTTPStatus.REQUEST_TIMEOUT,  # 408
+    HTTPStatus.INTERNAL_SERVER_ERROR,  # 500
+    HTTPStatus.NOT_IMPLEMENTED,  # 501
+    HTTPStatus.BAD_GATEWAY,  # 502
+    HTTPStatus.SERVICE_UNAVAILABLE,  # 503
+    HTTPStatus.GATEWAY_TIMEOUT,  # 504
+    HTTPStatus.HTTP_VERSION_NOT_SUPPORTED,  # 505
+}
+
+
+def should_retry_http_response(response: httpx.Response) -> bool:
+    """Check if an HTTP response should trigger a retry."""
+    return response.status_code in HTTP_RETRY_STATUSES
 
 
 class RetryError(Exception):
@@ -53,10 +71,10 @@ def _compute_delay(
     *,
     add_jitter: bool,
 ) -> float:
-    delay = min(base * (exp_base**attempt), max_d)
+    delay = base * (exp_base**attempt)
     if add_jitter:
         delay *= 0.5 + random.random()
-    return delay
+    return min(delay, max_d)
 
 
 def _log_retry(
@@ -90,6 +108,11 @@ async def _run_with_retries_async(
             return await func(*args, **kwargs)
         except runtime.config.exceptions as e:  # type: ignore[misc]
             last_exception = e
+            # If this is an HTTPStatusError, only retry on allowed statuses
+            if isinstance(e, httpx.HTTPStatusError):
+                resp = getattr(e, "response", None)
+                if resp is not None and not should_retry_http_response(resp):
+                    raise
             if attempt == runtime.config.max_attempts - 1:
                 break
             delay = _compute_delay(
@@ -119,6 +142,11 @@ def _run_with_retries_sync(
             return func(*args, **kwargs)
         except runtime.config.exceptions as e:  # type: ignore[misc]
             last_exception = e
+            # If this is an HTTPStatusError, only retry on allowed statuses
+            if isinstance(e, httpx.HTTPStatusError):
+                resp = getattr(e, "response", None)
+                if resp is not None and not should_retry_http_response(resp):
+                    raise
             if attempt == runtime.config.max_attempts - 1:
                 break
             delay = _compute_delay(
@@ -171,60 +199,19 @@ def retry(
     return decorator
 
 
-def retry_db_operation(
-    max_attempts: int = 3,
-    base_delay: float = 0.5,
-    max_delay: float = 5.0,
-) -> Callable:
-    """
-    Specialized retry decorator for database operations.
-
-    Args:
-        max_attempts: Maximum retry attempts for DB operations
-        base_delay: Base delay for DB retries (shorter for local DB)
-        max_delay: Maximum delay for DB retries
-
-    Returns:
-        Decorator for database operations
-    """
-
-    return retry(
-        RetryConfig(
-            max_attempts=max_attempts,
-            base_delay=base_delay,
-            max_delay=max_delay,
-            exceptions=(
-                sqlite3.Error,
-                sqlite3.OperationalError,
-                sqlite3.DatabaseError,
-            ),
-        ),
-        logger=logging.getLogger(__name__),
-    )
-
-
-def retry_network_operation(
-    max_attempts: int = 5,
-    base_delay: float = 1.0,
-    max_delay: float = 30.0,
-) -> Callable:
+def retry_network_operation() -> Callable:
     """
     Specialized retry decorator for network operations (API calls, etc.).
-
-    Args:
-        max_attempts: Maximum retry attempts for network operations
-        base_delay: Base delay for network retries
-        max_delay: Maximum delay for network retries
+    Uses centralized configuration from settings.
 
     Returns:
         Decorator for network operations
     """
-
     return retry(
         RetryConfig(
-            max_attempts=max_attempts,
-            base_delay=base_delay,
-            max_delay=max_delay,
+            max_attempts=settings.retry_max_attempts,
+            base_delay=settings.retry_base_delay,
+            max_delay=settings.retry_max_delay,
             exceptions=(
                 httpx.RequestError,
                 httpx.ConnectError,

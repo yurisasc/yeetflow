@@ -1,14 +1,17 @@
 import logging
-import os
 from typing import Any
 
 import socketio
 
+from app.config import get_socketio_config
+
 logger = logging.getLogger(__name__)
 
 # Create Socket.IO server
-allowed = os.getenv("SOCKETIO_CORS", "*").split(",")
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=allowed)
+socketio_config = get_socketio_config()
+origins = [o.strip() for o in socketio_config["cors_allowed_origins"] if o.strip()]
+cors_allowed = "*" if origins == ["*"] or not origins else origins
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_allowed)
 
 # In-memory storage for connected clients (in production, use Redis or database)
 connected_clients: dict[str, str] = {}
