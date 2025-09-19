@@ -89,3 +89,17 @@ async def get_run_events(run_id: UUID, session: AsyncSession = db_dependency):
         return await service.get_run_events(run_id, session)
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+
+
+@router.patch("/runs/{run_id}", response_model=RunRead)
+async def update_run(
+    run_id: UUID,
+    request: dict,
+    session: AsyncSession = db_dependency,
+):
+    """Update an existing run."""
+    service = RunService()
+    try:
+        return await service.update_run(run_id, request, session)
+    except RunNotFoundError as e:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
