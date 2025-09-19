@@ -16,6 +16,7 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "greenlet>=3.2.4",
     "pydantic-settings>=2.10.1",
+    "alembic>=1.16.5",
 ]
 
 [tool.uv]
@@ -23,7 +24,7 @@ dev-dependencies = ["pytest>=8.4.2", "ruff>=0.8.0"]
 
 [tool.ruff]
 line-length = 88
-exclude = ["__pycache__/", ".venv/", "**/migrations/**"]
+exclude = ["__pycache__/", ".venv/", "**/alembic/versions/**"]
 target-version = "py311"
 
 [tool.ruff.lint]
@@ -96,3 +97,10 @@ packages = ["app"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.scripts]
+db-upgrade = "app.migrations_cli:upgrade_main"
+db-downgrade = "app.migrations_cli:downgrade_main"
+db-current = "app.migrations_cli:current_main"
+db-history = "app.migrations_cli:history_main"
+db-revision = "app.migrations_cli:revision_main"

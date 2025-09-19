@@ -93,10 +93,14 @@ class Run(RunBase, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     flow_id: UUID = Field(
-        sa_column=Column(ForeignKey("flow.id", ondelete="CASCADE"), nullable=False)
+        sa_column=Column(
+            ForeignKey("flow.id", ondelete="CASCADE"), nullable=False, index=True
+        )
     )
     user_id: UUID = Field(
-        sa_column=Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+        sa_column=Column(
+            ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+        )
     )
 
     flow: Flow | None = Relationship(back_populates="runs")
@@ -111,7 +115,9 @@ class Session(SessionBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     run_id: UUID = Field(
-        sa_column=Column(ForeignKey("run.id", ondelete="CASCADE"), nullable=False)
+        sa_column=Column(
+            ForeignKey("run.id", ondelete="CASCADE"), nullable=False, index=True
+        )
     )
     run: Run | None = Relationship(back_populates="sessions")
 
@@ -120,7 +126,9 @@ class Event(EventBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     run_id: UUID = Field(
-        sa_column=Column(ForeignKey("run.id", ondelete="CASCADE"), nullable=False)
+        sa_column=Column(
+            ForeignKey("run.id", ondelete="CASCADE"), nullable=False, index=True
+        )
     )
     run: Run | None = Relationship(back_populates="events")
 
