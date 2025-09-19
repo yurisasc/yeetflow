@@ -5,14 +5,15 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
+# Add parent directory to sys.path to make app package discoverable when Alembic runs
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 
 from alembic import context
 from app.config import get_database_url
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Make sure models are imported so SQLModel.metadata is populated for autogenerate
 for _mod in ("app.models", "app.db.models"):
