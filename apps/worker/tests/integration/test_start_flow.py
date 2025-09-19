@@ -6,6 +6,7 @@ import pytest
 from tests.conftest import BaseTestClass
 
 
+@pytest.mark.integration
 class TestStartFlowIntegration(BaseTestClass):
     """Integration tests for starting a flow and verifying session creation."""
 
@@ -22,21 +23,24 @@ class TestStartFlowIntegration(BaseTestClass):
         assert response.status_code == HTTPStatus.CREATED
 
         data = response.json()
-        assert "run_id" in data
-        assert "session_url" in data
+        assert "id" in data
         assert "status" in data
 
-        run_id = data["run_id"]
-        session_url = data["session_url"]
+        run_id = data["id"]
 
         # Verify the run was created
         get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         assert get_response.status_code == HTTPStatus.OK
         run_data = get_response.json()
-        assert run_data["run_id"] == run_id
+        assert run_data["id"] == run_id
         assert run_data["status"] in ["pending", "running"]
 
-        # Verify session URL is valid
+        # Check that sessions were created for this run
+        sessions_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/sessions")
+        assert sessions_response.status_code == HTTPStatus.OK
+        sessions = sessions_response.json()
+        assert len(sessions) > 0  # Should have at least one session
+        session_url = sessions[0]["session_url"]
         assert session_url.startswith("https://")
 
     def test_start_flow_status_transitions_to_running(self):
@@ -51,7 +55,7 @@ class TestStartFlowIntegration(BaseTestClass):
         )
         assert response.status_code == HTTPStatus.CREATED
 
-        run_id = response.json()["run_id"]
+        run_id = response.json()["id"]
 
         # Poll for status update with timeout
         deadline = time.monotonic() + 5.0
@@ -81,7 +85,7 @@ class TestStartFlowIntegration(BaseTestClass):
             },
         )
         assert response1.status_code == HTTPStatus.CREATED
-        run_id1 = response1.json()["run_id"]
+        run_id1 = response1.json()["id"]
 
         # Start second flow
         response2 = self.client.post(
@@ -92,7 +96,7 @@ class TestStartFlowIntegration(BaseTestClass):
             },
         )
         assert response2.status_code == HTTPStatus.CREATED
-        run_id2 = response2.json()["run_id"]
+        run_id2 = response2.json()["id"]
 
         # Verify they are different
         assert run_id1 != run_id2
@@ -108,7 +112,14 @@ class TestStartFlowIntegration(BaseTestClass):
             },
         )
         assert response.status_code == HTTPStatus.CREATED
-        session_url = response.json()["session_url"]
+        run_id = response.json()["id"]
+
+        # Check that sessions were created for this run
+        sessions_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/sessions")
+        assert sessions_response.status_code == HTTPStatus.OK
+        sessions = sessions_response.json()
+        assert len(sessions) > 0  # Should have at least one session
+        session_url = sessions[0]["session_url"]
 
         assert "steel.dev" in session_url or "localhost" in session_url
 
@@ -131,7 +142,7 @@ class TestStartFlowIntegration(BaseTestClass):
             assert response.status_code == HTTPStatus.CREATED
 
         # Verify all runs are created
-        run_ids = [r.json()["run_id"] for r in responses]
+        run_ids = [r.json()["id"] for r in responses]
         assert len(set(run_ids)) == len(run_ids)  # All unique
 
     @pytest.mark.parametrize(
@@ -154,9 +165,9 @@ class TestStartFlowIntegration(BaseTestClass):
         assert response.status_code == HTTPStatus.CREATED
 
         data = response.json()
-        assert "run_id" in data
-        assert "session_url" in data
+        assert "id" in data
+        assert "status" in data
 
         # Verify the run
-        get_response = self.client.get(f"{self.API_PREFIX}/runs/{data['run_id']}")
+        get_response = self.client.get(f"{self.API_PREFIX}/runs/{data['id']}")
         assert get_response.status_code == HTTPStatus.OK

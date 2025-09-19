@@ -20,7 +20,12 @@ dependencies = [
 ]
 
 [tool.uv]
-dev-dependencies = ["pytest>=8.4.2", "ruff>=0.8.0"]
+dev-dependencies = [
+    "pytest>=8.4.2",
+    "pytest-xdist>=3.8.0",
+    "pytest-asyncio>=1.2.0",
+    "ruff>=0.13.1",
+]
 
 [tool.ruff]
 line-length = 88
@@ -84,12 +89,41 @@ select = [
 ignore = ["COM812"]
 
 [tool.ruff.lint.per-file-ignores]
-# Allow assert statements in test files
-"tests/**/*.py" = ["S101"]
+# Allow assert statements and dummy passwords in test files
+"tests/**/*.py" = ["S101", "S105"]
 # Allow HTTPException raises in try blocks for router error handling
 "app/routers/*.py" = ["TRY301"]
 # Allow random.random() for retry jitter
 "app/utils/retry.py" = ["S311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto" # Enable async test discovery
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--disable-warnings",
+    "-ra",
+    # Enable parallel execution for faster test runs
+    "-n",
+    "auto",
+    # Show progress with less verbose output
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "xfail: marks tests as expected to fail",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

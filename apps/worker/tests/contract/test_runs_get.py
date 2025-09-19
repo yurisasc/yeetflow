@@ -4,7 +4,7 @@ from tests.conftest import BaseTestClass
 
 
 class TestRunsGetContract(BaseTestClass):
-    """Contract tests for GET /runs/{runId} endpoint."""
+    """Contract tests for GET /runs endpoints."""
 
     def test_get_runs_returns_200_with_status(self):
         """Test that GET /runs/{runId} returns HTTPStatus.OK with run status."""
@@ -17,7 +17,7 @@ class TestRunsGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Then get the run
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -31,8 +31,8 @@ class TestRunsGetContract(BaseTestClass):
             "completed",
             "failed",
         ]
-        assert "run_id" in data
-        assert data["run_id"] == run_id
+        assert "id" in data
+        assert data["id"] == run_id
 
     def test_get_runs_nonexistent_returns_404(self):
         """Test that GET /runs/{runId} returns NOT_FOUND for nonexistent run."""
@@ -48,7 +48,7 @@ class TestRunsGetContract(BaseTestClass):
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_get_runs_includes_session_url_when_available(self):
-        """Test that GET /runs/{runId} includes session_url when available."""
+        """Test that GET /runs/{runId} returns run details."""
         # Create a run
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -58,14 +58,14 @@ class TestRunsGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Get the run
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         assert response.status_code == HTTPStatus.OK
         data = response.json()
-        if "session_url" in data:
-            assert data["session_url"].startswith("https://")
+        assert data["id"] == run_id
+        assert data["status"] in ["pending", "running"]
 
     def test_get_runs_status_transitions_correctly(self):
         """Test that run status transitions work correctly."""
@@ -78,7 +78,7 @@ class TestRunsGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Initial status should be running or pending
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -97,7 +97,7 @@ class TestRunsGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -125,7 +125,7 @@ class TestRunsGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -153,7 +153,7 @@ class TestRunsGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
@@ -178,10 +178,12 @@ class TestRunsGetContract(BaseTestClass):
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                "status": "completed",
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        create_response.json()["run_id"]
+        # TODO: Use when status transition logic exists
+        # run_id = create_response.json()["id"] # noqa: ERA001
 
         # TODO: When status transition logic exists, this test should:
         # 1. Force a run to completed status (via direct DB update for testing)
@@ -196,12 +198,148 @@ class TestRunsGetContract(BaseTestClass):
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                "status": "failed",
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        create_response.json()["run_id"]
+        # TODO: Use when status transition logic exists
+        # run_id = create_response.json()["id"] # noqa: ERA001
 
         # TODO: When status transition logic exists, this test should:
         # 1. Force a run to failed status (via direct DB update for testing)
         # 2. Attempt to change status via various endpoints
         # 3. Verify status remains "failed" and operations are rejected
+
+    def test_list_runs_returns_200_with_pagination(self):
+        """Test that GET /runs returns HTTPStatus.OK with paginated results."""
+        # Create multiple runs
+        for _ in range(3):
+            response = self.client.post(
+                f"{self.API_PREFIX}/runs",
+                json={
+                    "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                },
+            )
+            assert response.status_code == HTTPStatus.CREATED
+
+        # Get list of runs
+        response = self.client.get(f"{self.API_PREFIX}/runs")
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        # Should be a list
+        assert isinstance(data, list)
+        # Should have at least the runs we created
+        expected_run_count = 3
+        assert len(data) >= expected_run_count
+
+        # Verify each run has required fields
+        for run in data:
+            assert "id" in run
+            assert "flow_id" in run
+            assert "user_id" in run
+            assert "status" in run
+            assert "created_at" in run
+            assert "updated_at" in run
+
+    def test_list_runs_pagination_works(self):
+        """Test that GET /runs pagination parameters work correctly."""
+        # Create multiple runs
+        run_ids = []
+        for _ in range(5):
+            response = self.client.post(
+                f"{self.API_PREFIX}/runs",
+                json={
+                    "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                },
+            )
+            assert response.status_code == HTTPStatus.CREATED
+            run_ids.append(response.json()["id"])
+
+        # Test limit parameter
+        pagination_limit = 2
+        response = self.client.get(f"{self.API_PREFIX}/runs?limit={pagination_limit}")
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert len(data) <= pagination_limit
+
+        # Test skip parameter
+        skip_count = 2
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs?skip={skip_count}&limit={pagination_limit}"
+        )
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert len(data) <= pagination_limit
+
+    def test_get_run_sessions_returns_200(self):
+        """Test that GET /runs/{runId}/sessions returns HTTPStatus.OK."""
+        # Create a run
+        create_response = self.client.post(
+            f"{self.API_PREFIX}/runs",
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
+        )
+        assert create_response.status_code == HTTPStatus.CREATED
+        run_id = create_response.json()["id"]
+
+        # Get run sessions
+        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/sessions")
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        # Should be a list
+        assert isinstance(data, list)
+
+        # Verify session structure if sessions exist
+        for session in data:
+            assert "id" in session
+            assert "run_id" in session
+            assert "status" in session
+            assert "created_at" in session
+
+    def test_get_run_sessions_nonexistent_run_returns_404(self):
+        """Test that GET /runs/{runId}/sessions returns 404 for nonexistent run."""
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs/00000000-0000-0000-0000-000000000000/sessions"
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_get_run_events_returns_200(self):
+        """Test that GET /runs/{runId}/events returns HTTPStatus.OK."""
+        # Create a run
+        create_response = self.client.post(
+            f"{self.API_PREFIX}/runs",
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
+        )
+        assert create_response.status_code == HTTPStatus.CREATED
+        run_id = create_response.json()["id"]
+
+        # Get run events
+        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/events")
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+
+        # Should be a list
+        assert isinstance(data, list)
+
+        # Verify event structure if events exist
+        for event in data:
+            assert "id" in event
+            assert "run_id" in event
+            assert "type" in event
+            assert "at" in event
+
+    def test_get_run_events_nonexistent_run_returns_404(self):
+        """Test that GET /runs/{runId}/events returns 404 for nonexistent run."""
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs/00000000-0000-0000-0000-000000000000/events"
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND

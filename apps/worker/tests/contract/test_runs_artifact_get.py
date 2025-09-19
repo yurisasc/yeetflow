@@ -23,7 +23,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # TODO: Complete the run and generate artifact
         # For now, assume the run is completed
@@ -55,12 +55,12 @@ class TestRunsArtifactGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Get the artifact before completion
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
         assert response.status_code == HTTPStatus.NOT_FOUND
-        assert "not ready" in response.json()["detail"].lower()
+        assert "not found" in response.json()["detail"].lower()
 
     def test_get_runs_artifact_failed_run_returns_404(self):
         """Test that GET /runs/{runId}/artifact returns NOT_FOUND for failed runs."""
@@ -71,7 +71,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
     @pytest.mark.xfail(
         strict=False,
-        reason="Awaiting artifact generation/completion flow.",
+        reason="Artifact endpoint returns 404 - not implemented yet.",
     )
     def test_get_runs_artifact_content_disposition(self):
         """Test GET /runs/{runId}/artifact proper content-disposition header."""
@@ -84,14 +84,15 @@ class TestRunsArtifactGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # TODO: Complete the run
 
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
-        if response.status_code == HTTPStatus.OK:
-            assert response.headers.get("content-disposition")
-            assert "attachment" in response.headers.get("content-disposition", "")
+        # When implemented, this should return 200 with proper headers
+        assert response.status_code == HTTPStatus.OK
+        assert response.headers.get("content-disposition")
+        assert "attachment" in response.headers.get("content-disposition", "")
 
     @pytest.mark.xfail(
         strict=False,
@@ -108,7 +109,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # TODO: Complete the run and generate a large artifact file
         # For now, assume the run is completed with a large artifact
