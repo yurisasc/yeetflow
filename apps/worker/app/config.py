@@ -4,7 +4,7 @@ All environment variables are loaded and validated here.
 """
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default configuration values
 DEFAULT_DATABASE_URL = "sqlite:///yeetflow.db"
@@ -96,10 +96,12 @@ class Settings(BaseSettings):
         description="CORS allowed origins for Socket.IO (comma-separated)",
     )
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
     def model_post_init(self, _) -> None:
         if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
