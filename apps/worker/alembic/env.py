@@ -1,20 +1,23 @@
 import asyncio
+import contextlib
+import importlib
 import sys
 from logging.config import fileConfig
-
-# Add the parent directory to sys.path to import our app
 from pathlib import Path
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
-
-from alembic import context
-
-sys.path.append(str(Path(__file__).parent.parent))
-# Import SQLModel and our models
 from sqlmodel import SQLModel
 
+from alembic import context
 from app.config import get_database_url
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# Make sure models are imported so SQLModel.metadata is populated for autogenerate
+for _mod in ("app.models", "app.db.models"):
+    with contextlib.suppress(ModuleNotFoundError):
+        importlib.import_module(_mod)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,12 +32,7 @@ if config.config_file_name is not None:
 database_url = get_database_url()
 config.set_main_option("sqlalchemy.url", database_url)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
 target_metadata = SQLModel.metadata
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
 
 
 def run_migrations_offline() -> None:
@@ -50,11 +48,15 @@ def run_migrations_offline() -> None:
 
     """
     url = config.get_main_option("sqlalchemy.url")
+    is_sqlite = url.startswith("sqlite")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
+        render_as_batch=is_sqlite,
     )
 
     with context.begin_transaction():
@@ -63,7 +65,14 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection):
     """Run migrations with the given connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    is_sqlite = config.get_main_option("sqlalchemy.url").startswith("sqlite")
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+        render_as_batch=is_sqlite,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -78,6 +87,7 @@ async def run_migrations_online() -> None:
     connectable = create_async_engine(
         config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
+        pool_pre_ping=True,
     )
 
     async with connectable.connect() as connection:

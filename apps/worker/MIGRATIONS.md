@@ -8,7 +8,7 @@ Alembic has been configured to work with SQLModel and async SQLite operations.
 
 ## Available Commands
 
-### Using Alembic directly:
+### Using Alembic directly
 ```bash
 # Show current migration
 uv run alembic current
@@ -26,7 +26,7 @@ uv run alembic downgrade -1
 uv run alembic revision --autogenerate -m "Description of changes"
 ```
 
-### Using npm scripts (via package.json):
+### Using npm scripts (via package.json)
 ```bash
 # Show current migration
 npm run db:current
@@ -52,7 +52,7 @@ npm run db:stamp
 
 ## Configuration
 
-- **alembic.ini**: Contains database URL and Alembic configuration
+- **alembic.ini**: Alembic configuration (DB URL is read from environment in `alembic/env.py`)
 - **alembic/env.py**: Configured for async SQLModel operations
 - **alembic/versions/**: Migration files are stored here
 
@@ -71,7 +71,7 @@ npm run db:stamp
 
 ## Initial Setup
 
-The initial migration (`001_initial_baseline`) represents the current SQLModel schema. Since the database already exists with the correct schema, this is a baseline migration that serves as the starting point for future changes.
+The initial migration (`b9f712cd6fa9_initial_schema_creation_with_sqlmodel`) represents the current SQLModel schema. Since the database already exists with the correct schema, this is a baseline migration that serves as the starting point for future changes.
 
 ## Troubleshooting
 
