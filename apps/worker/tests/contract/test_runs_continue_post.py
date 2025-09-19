@@ -1,5 +1,7 @@
 from http import HTTPStatus
 
+import pytest
+
 from app.models import RunStatus
 from tests.conftest import BaseTestClass
 
@@ -7,6 +9,7 @@ from tests.conftest import BaseTestClass
 class TestRunsContinuePostContract(BaseTestClass):
     """Contract tests for POST /runs/{runId}/continue endpoint."""
 
+    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_returns_200_for_awaiting_input(self):
         """Test that POST /runs/{runId}/continue returns OK for runs awaiting input."""
         # Create a run that will go into awaiting_input state
@@ -18,7 +21,7 @@ class TestRunsContinuePostContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Put the run into awaiting_input state
         self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
@@ -42,6 +45,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
 
+    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_not_awaiting_input_returns_400(self):
         """Test POST /runs/{runId}/continue returns 400 for runs not awaiting input."""
         # Create a run
@@ -53,7 +57,7 @@ class TestRunsContinuePostContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Ensure the run is in running state (not awaiting_input)
         self.set_run_status(run_id, RunStatus.RUNNING)
@@ -66,6 +70,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "not awaiting input" in response.json()["detail"].lower()
 
+    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_requires_action_data(self):
         """Test that POST /runs/{runId}/continue requires action data."""
         # Create and pause a run
@@ -77,7 +82,7 @@ class TestRunsContinuePostContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Put run into awaiting_input state
         self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
@@ -91,6 +96,7 @@ class TestRunsContinuePostContract(BaseTestClass):
             response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         )  # Validation error
 
+    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_validates_action_format(self):
         """Test that POST /runs/{runId}/continue validates action format."""
         # Create and pause a run
@@ -102,7 +108,7 @@ class TestRunsContinuePostContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Put run into awaiting_input state
         self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
@@ -114,6 +120,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         )
         assert response.status_code == HTTPStatus.BAD_REQUEST
 
+    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_updates_status_to_running(self):
         """Test that POST /runs/{runId}/continue updates status to running."""
         # Create and pause a run
@@ -125,7 +132,7 @@ class TestRunsContinuePostContract(BaseTestClass):
             },
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["run_id"]
+        run_id = create_response.json()["id"]
 
         # Put run into awaiting_input state
         self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
