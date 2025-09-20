@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 from pydantic import Field as PydField
 from sqlalchemy.dialects.sqlite import JSON
 from sqlmodel import Column, Field, ForeignKey, Relationship, SQLModel
@@ -45,6 +45,7 @@ class EventType(str, Enum):
     ACTION_ACK = "action_ack"
     COMPLETED = "completed"
     FAILED = "failed"
+    RUN_CONTINUED = "run_continued"
 
 
 class RunBase(SQLModel):
@@ -67,7 +68,7 @@ class SessionBase(SQLModel):
 
 
 class EventBase(SQLModel):
-    type: EventType
+    type: EventType = Field(sa_column=Column(sa.VARCHAR(), nullable=False))
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
     at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -215,6 +216,31 @@ class RunUpdate(PydanticBaseModel):
     ended_at: datetime | None = None
 
 
+class RunContinue(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    input_payload: dict | None = None
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self):
+        if self.input_payload is None and self.notes is None:
+            error_msg = "At least one of input_payload or notes must be provided"
+            raise ValueError(error_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_input_payload(self):
+        if self.input_payload is not None:
+            if "action" not in self.input_payload:
+                error_msg = "input_payload must contain an 'action' field"
+                raise ValueError(error_msg)
+            valid_actions = ["continue"]
+            if self.input_payload["action"] not in valid_actions:
+                error_msg = f"action must be one of: {', '.join(valid_actions)}"
+                raise ValueError(error_msg)
+        return self
+
+
 class SessionCreate(PydanticBaseModel):
     model_config = ConfigDict(from_attributes=True)
     run_id: UUID
@@ -243,7 +269,7 @@ class EventCreate(PydanticBaseModel):
 
 
 class EventRead(PydanticBaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
     id: UUID
     run_id: UUID
     type: EventType

@@ -5,7 +5,16 @@ from uuid import UUID, uuid4
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Flow, Run, RunCreate, RunStatus, SessionStatus
+from app.models import (
+    Event,
+    EventType,
+    Flow,
+    Run,
+    RunContinue,
+    RunCreate,
+    RunStatus,
+    SessionStatus,
+)
 from app.models import Session as SessionModel
 from app.services.run.errors import (
     InvalidFlowError,
@@ -104,15 +113,11 @@ class RunService:
         await self.get_run(run_id, session)
         return await self.repository.get_sessions(session, run_id)
 
-    async def get_run_events(
-        self, run_id: UUID, session: AsyncSession
-    ) -> list[SessionModel]:
+    async def get_run_events(self, run_id: UUID, session: AsyncSession) -> list[Event]:
         """Get all events for a specific run."""
         # Verify run exists first
         await self.get_run(run_id, session)
-        # TODO: Implement event repository when events are added
-        # For now, return empty list
-        return []
+        return await self.repository.get_events(session, run_id)
 
     # Private helper methods
     async def _create_run_record(
@@ -212,8 +217,7 @@ class RunService:
         """Update an existing run."""
         run = await self.repository.get_by_id(session, run_id)
         if not run:
-            error_msg = f"Run {run_id} not found"
-            raise RunNotFoundError(error_msg)
+            raise RunNotFoundError(str(run_id))
 
         # Update fields from request
         if "result_uri" in request:
@@ -226,4 +230,38 @@ class RunService:
             run.ended_at = request["ended_at"]
 
         run.updated_at = datetime.now(UTC)
+        return await self.repository.update(session, run)
+
+    async def continue_run(
+        self, run_id: UUID, request: RunContinue, session: AsyncSession
+    ) -> Run:
+        """Continue a run that is awaiting input."""
+        run = await self.repository.get_by_id(session, run_id)
+        if not run:
+            raise RunNotFoundError(str(run_id))
+
+        # Validate that run is in awaiting_input status
+        if run.status != RunStatus.AWAITING_INPUT:
+            error_msg = (
+                f"Run is not awaiting input (current status: {run.status.value})"
+            )
+            raise ValueError(error_msg)
+
+        # Store request context in an event for audit trail
+        if request.input_payload is not None or request.notes is not None:
+            event = Event(
+                run_id=run_id,
+                type=EventType.RUN_CONTINUED,
+                message="Run continued",
+                payload={
+                    "input_payload": request.input_payload,
+                    "notes": request.notes,
+                },
+            )
+            session.add(event)
+
+        # Set run status to running
+        run.status = RunStatus.RUNNING
+        run.updated_at = datetime.now(UTC)
+
         return await self.repository.update(session, run)

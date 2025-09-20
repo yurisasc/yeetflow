@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db_session
 from app.models import (
     EventRead,
+    RunContinue,
     RunCreate,
     RunRead,
     RunUpdate,
@@ -125,3 +126,19 @@ async def update_run(
         )
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+
+
+@router.post("/runs/{run_id}/continue", response_model=RunRead)
+async def continue_run(
+    run_id: UUID,
+    request: RunContinue,
+    session: AsyncSession = db_dependency,
+):
+    """Continue a run that is awaiting input."""
+    service = RunService()
+    try:
+        return await service.continue_run(run_id, request, session)
+    except RunNotFoundError as e:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e

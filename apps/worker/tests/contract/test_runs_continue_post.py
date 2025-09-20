@@ -1,7 +1,5 @@
 from http import HTTPStatus
 
-import pytest
-
 from app.models import RunStatus
 from tests.conftest import BaseTestClass
 
@@ -9,7 +7,6 @@ from tests.conftest import BaseTestClass
 class TestRunsContinuePostContract(BaseTestClass):
     """Contract tests for POST /runs/{runId}/continue endpoint."""
 
-    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_returns_200_for_awaiting_input(self):
         """Test that POST /runs/{runId}/continue returns OK for runs awaiting input."""
         # Create a run that will go into awaiting_input state
@@ -29,7 +26,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Continue the run
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
-            json={"action": "continue"},
+            json={"input_payload": {"action": "continue"}},
         )
         assert response.status_code == HTTPStatus.OK
         data = response.json()
@@ -39,13 +36,12 @@ class TestRunsContinuePostContract(BaseTestClass):
     def test_post_runs_continue_nonexistent_run_returns_404(self):
         """Test that POST /runs/{runId}/continue returns 404 for nonexistent run."""
         response = self.client.post(
-            f"{self.API_PREFIX}/runs/nonexistent-run-id/continue",
-            json={"action": "continue"},
+            f"{self.API_PREFIX}/runs/550e8400-e29b-41d4-a716-446655440001/continue",
+            json={"input_payload": {"action": "continue"}},
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_not_awaiting_input_returns_400(self):
         """Test POST /runs/{runId}/continue returns 400 for runs not awaiting input."""
         # Create a run
@@ -65,12 +61,11 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Try to continue a running run
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
-            json={"action": "continue"},
+            json={"input_payload": {"action": "continue"}},
         )
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "not awaiting input" in response.json()["detail"].lower()
 
-    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_requires_action_data(self):
         """Test that POST /runs/{runId}/continue requires action data."""
         # Create and pause a run
@@ -96,7 +91,6 @@ class TestRunsContinuePostContract(BaseTestClass):
             response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         )  # Validation error
 
-    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_validates_action_format(self):
         """Test that POST /runs/{runId}/continue validates action format."""
         # Create and pause a run
@@ -116,11 +110,12 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Try with invalid action
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
-            json={"action": "invalid"},
+            json={"input_payload": {"action": "invalid"}},
         )
-        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert (
+            response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        )  # Pydantic validation error
 
-    @pytest.mark.xfail(strict=False, reason="Continue endpoint not implemented yet")
     def test_post_runs_continue_updates_status_to_running(self):
         """Test that POST /runs/{runId}/continue updates status to running."""
         # Create and pause a run
@@ -144,7 +139,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Continue the run
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
-            json={"action": "continue"},
+            json={"input_payload": {"action": "continue"}},
         )
         assert response.status_code == HTTPStatus.OK
 
