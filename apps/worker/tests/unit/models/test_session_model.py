@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.models import Flow, Run, SessionCreate, SessionRead, User
+from app.models import Flow, Run, SessionCreate, SessionRead, SessionStatus, User
 from app.models import Session as DBSession
 
 # Test constants
@@ -46,7 +46,7 @@ class TestSessionModel:
 
         assert session_with_run.run_id == run.id
         assert session_with_run.run.id == run.id
-        assert session_with_run.status == "pending"
+        assert session_with_run.status == SessionStatus.STARTING
         assert session_with_run.session_url is None
 
     async def test_session_serialization(self, session):

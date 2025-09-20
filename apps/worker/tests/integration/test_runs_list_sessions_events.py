@@ -34,8 +34,7 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         assert isinstance(runs, list)
         assert len(runs) >= expected_run_count
         listed_ids = {r["id"] for r in runs}
-        for rid in run_ids:
-            assert rid in listed_ids
+        assert listed_ids.issuperset(run_ids)
 
         # Verify we can retrieve each created run
         for run_id in run_ids:
@@ -201,6 +200,7 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         """Integration test for pagination performance with many runs."""
         # Create many runs for pagination testing
         run_count = 10
+        created_run_ids = []
         for _ in range(run_count):
             response = self.client.post(
                 f"{self.API_PREFIX}/runs",
@@ -210,6 +210,7 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
                 },
             )
             assert response.status_code == HTTPStatus.CREATED
+            created_run_ids.append(response.json()["id"])
 
         # Test pagination works correctly
         page_size = 3
@@ -232,3 +233,4 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         all_ids = [r["id"] for r in all_runs]
         assert len(set(all_ids)) == len(all_ids)
         assert len(all_runs) >= run_count
+        assert set(created_run_ids).issubset(set(all_ids))

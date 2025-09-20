@@ -201,11 +201,9 @@ class RunService:
             logger.warning("Failed to emit progress for run %s: %s", run_id, str(e))
 
     async def _validate_flow_exists(self, flow_id: UUID, session: AsyncSession) -> None:
-        """Validate that the specified flow exists."""
-
-        result = await session.execute(select(Flow).where(Flow.id == flow_id))
-        flow = result.scalar_one_or_none()
-        if not flow:
+        """Validate that the specified flow exists (PK-only fetch)."""
+        exists_id = await session.scalar(select(Flow.id).where(Flow.id == flow_id))
+        if exists_id is None:
             raise InvalidFlowError(str(flow_id))
 
     async def update_run(
