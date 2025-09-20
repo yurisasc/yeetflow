@@ -89,8 +89,8 @@ select = [
 ignore = ["COM812"]
 
 [tool.ruff.lint.per-file-ignores]
-# Allow assert statements and dummy passwords in test files
-"tests/**/*.py" = ["S101", "S105"]
+# Allow assert statements, dummy passwords, and implicit namespace packages in test files
+"tests/**/*.py" = ["S101", "S105", "INP001"]
 # Allow HTTPException raises in try blocks for router error handling
 "app/routers/*.py" = ["TRY301"]
 # Allow random.random() for retry jitter

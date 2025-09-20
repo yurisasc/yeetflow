@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, select
@@ -64,6 +65,15 @@ class BaseTestClass:
         """Override the database session dependency to use test session."""
         # Create a test session factory that uses our test database
         self.test_engine = create_async_engine(self.test_db_url, echo=False)
+
+        # Register event listener for SQLite foreign keys (same as production)
+        @event.listens_for(self.test_engine.sync_engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, _):
+            """Enable foreign key constraints for every SQLite connection."""
+            if "sqlite" in self.test_db_url:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys = ON")
+                cursor.close()
 
         # Create tables in the test database
         async def create_tables():

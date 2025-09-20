@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlmodel import SQLModel
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def engine():
     """Create async SQLite engine for unit tests."""
     # Use in-memory SQLite to avoid file conflicts between tests
@@ -36,7 +36,7 @@ def engine():
     asyncio.run(engine.dispose())
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def async_session_maker(engine):
     """Create async session maker."""
     return async_sessionmaker(

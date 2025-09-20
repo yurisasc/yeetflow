@@ -2,11 +2,13 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Run, RunCreate, RunStatus, SessionStatus
+from app.models import Flow, Run, RunCreate, RunStatus, SessionStatus
 from app.models import Session as SessionModel
 from app.services.run.errors import (
+    InvalidFlowError,
     MissingSessionURLError,
     RunNotFoundError,
     SessionCreationFailedError,
@@ -31,6 +33,9 @@ class RunService:
 
     async def create_run(self, request: RunCreate, session: AsyncSession) -> Run:
         """Create a new run with Steel.dev session integration."""
+        # Validate that the flow exists
+        await self._validate_flow_exists(request.flow_id, session)
+
         run_id = uuid4()
 
         try:
@@ -194,6 +199,14 @@ class RunService:
             await emit_progress(str(run_id), data)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Failed to emit progress for run %s: %s", run_id, str(e))
+
+    async def _validate_flow_exists(self, flow_id: UUID, session: AsyncSession) -> None:
+        """Validate that the specified flow exists."""
+
+        result = await session.execute(select(Flow).where(Flow.id == flow_id))
+        flow = result.scalar_one_or_none()
+        if not flow:
+            raise InvalidFlowError(str(flow_id))
 
     async def update_run(
         self, run_id: UUID, request: dict, session: AsyncSession
