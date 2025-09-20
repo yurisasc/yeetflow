@@ -217,8 +217,7 @@ class RunService:
         """Update an existing run."""
         run = await self.repository.get_by_id(session, run_id)
         if not run:
-            error_msg = f"Run {run_id} not found"
-            raise RunNotFoundError(error_msg)
+            raise RunNotFoundError(str(run_id))
 
         # Update fields from request
         if "result_uri" in request:
@@ -239,26 +238,21 @@ class RunService:
         """Continue a run that is awaiting input."""
         run = await self.repository.get_by_id(session, run_id)
         if not run:
-            error_msg = f"Run {run_id} not found"
-            raise RunNotFoundError(error_msg)
+            raise RunNotFoundError(str(run_id))
 
         # Validate that run is in awaiting_input status
         if run.status != RunStatus.AWAITING_INPUT:
-            error_msg = f"Run is not awaiting input (current status: {run.status})"
+            error_msg = (
+                f"Run is not awaiting input (current status: {run.status.value})"
+            )
             raise ValueError(error_msg)
 
-        # Apply partial updates from request using exclude_unset semantics
-        update_data = request.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            if hasattr(run, field):
-                setattr(run, field, value)
-
-        # Store input_payload in event for audit trail
-        if request.input_payload is not None:
+        # Store request context in an event for audit trail
+        if request.input_payload is not None or request.notes is not None:
             event = Event(
                 run_id=run_id,
                 type=EventType.RUN_CONTINUED,
-                message="Run continued with user input",
+                message="Run continued",
                 payload={
                     "input_payload": request.input_payload,
                     "notes": request.notes,

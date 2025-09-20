@@ -65,6 +65,8 @@ class RunRepository:
     async def get_events(self, session: AsyncSession, run_id: UUID) -> list[Event]:
         """Get all events for a specific run."""
         result = await session.execute(
-            select(Event).where(Event.run_id == run_id).order_by(Event.at)
+            select(Event)
+            .where(Event.run_id == run_id)
+            .order_by(Event.at.asc(), Event.id.asc())
         )
         return list(result.scalars().all())

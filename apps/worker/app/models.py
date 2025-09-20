@@ -231,9 +231,6 @@ class RunContinue(PydanticBaseModel):
     @model_validator(mode="after")
     def validate_input_payload(self):
         if self.input_payload is not None:
-            if not isinstance(self.input_payload, dict):
-                error_msg = "input_payload must be a dictionary"
-                raise ValueError(error_msg)
             if "action" not in self.input_payload:
                 error_msg = "input_payload must contain an 'action' field"
                 raise ValueError(error_msg)
@@ -272,7 +269,7 @@ class EventCreate(PydanticBaseModel):
 
 
 class EventRead(PydanticBaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
     id: UUID
     run_id: UUID
     type: EventType
