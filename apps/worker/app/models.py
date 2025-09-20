@@ -59,7 +59,7 @@ class SessionBase(SQLModel):
     browser_provider_session_id: str | None = None
     status: SessionStatus = Field(
         default=SessionStatus.STARTING,
-        sa_column=Column(sa.VARCHAR(), server_default="starting"),
+        sa_column=Column(sa.VARCHAR(), server_default=SessionStatus.STARTING.value),
     )
     session_url: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

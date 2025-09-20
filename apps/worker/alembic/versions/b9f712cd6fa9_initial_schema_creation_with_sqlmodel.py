@@ -91,6 +91,9 @@ def upgrade() -> None:
         sa.Column("run_id", sa.CHAR(32), nullable=False),
         sa.ForeignKeyConstraint(["run_id"], ["run.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.CheckConstraint(
+            "status in ('starting','active','paused','ended')", name="ck_session_status"
+        ),
     )
     op.create_index(op.f("ix_session_run_id"), "session", ["run_id"], unique=False)
     # ### end Alembic commands ###

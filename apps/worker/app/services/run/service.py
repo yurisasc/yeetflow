@@ -166,7 +166,7 @@ class RunService:
             run_id=run_id,
             browser_provider_session_id=browser_session_id,
             session_url=session_url,
-            status=SessionStatus.ACTIVE.value,
+            status=SessionStatus.ACTIVE,
         )
         await self.repository.create_session(session, db_session)
 
