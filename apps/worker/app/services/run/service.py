@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Run, RunCreate, RunStatus
+from app.models import Run, RunCreate, RunStatus, SessionStatus
 from app.models import Session as SessionModel
 from app.services.run.errors import (
     MissingSessionURLError,
@@ -166,7 +166,7 @@ class RunService:
             run_id=run_id,
             browser_provider_session_id=browser_session_id,
             session_url=session_url,
-            status="running",
+            status=SessionStatus.ACTIVE,
         )
         await self.repository.create_session(session, db_session)
 

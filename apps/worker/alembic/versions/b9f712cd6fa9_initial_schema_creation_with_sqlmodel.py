@@ -83,7 +83,7 @@ def upgrade() -> None:
     op.create_table(
         "session",
         sa.Column("browser_provider_session_id", sa.VARCHAR(), nullable=True),
-        sa.Column("status", sa.VARCHAR(), nullable=False),
+        sa.Column("status", sa.VARCHAR(), nullable=False, server_default="starting"),
         sa.Column("session_url", sa.VARCHAR(), nullable=True),
         sa.Column("created_at", sa.DATETIME(), nullable=False),
         sa.Column("ended_at", sa.DATETIME(), nullable=True),
@@ -91,6 +91,9 @@ def upgrade() -> None:
         sa.Column("run_id", sa.CHAR(32), nullable=False),
         sa.ForeignKeyConstraint(["run_id"], ["run.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.CheckConstraint(
+            "status in ('starting','active','paused','ended')", name="ck_session_status"
+        ),
     )
     op.create_index(op.f("ix_session_run_id"), "session", ["run_id"], unique=False)
     # ### end Alembic commands ###
