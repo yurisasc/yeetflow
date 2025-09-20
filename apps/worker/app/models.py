@@ -68,7 +68,7 @@ class SessionBase(SQLModel):
 
 
 class EventBase(SQLModel):
-    type: EventType
+    type: EventType = Field(sa_column=Column(sa.VARCHAR(), nullable=False))
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
     at: datetime = Field(default_factory=lambda: datetime.now(UTC))
