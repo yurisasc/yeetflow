@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Flow, Run, RunCreate, RunStatus, SessionStatus
@@ -201,9 +201,9 @@ class RunService:
             logger.warning("Failed to emit progress for run %s: %s", run_id, str(e))
 
     async def _validate_flow_exists(self, flow_id: UUID, session: AsyncSession) -> None:
-        """Validate that the specified flow exists (PK-only fetch)."""
-        exists_id = await session.scalar(select(Flow.id).where(Flow.id == flow_id))
-        if exists_id is None:
+        """Validate that the specified flow exists"""
+        found = await session.scalar(select(exists().where(Flow.id == flow_id)))
+        if not found:
             raise InvalidFlowError(str(flow_id))
 
     async def update_run(
