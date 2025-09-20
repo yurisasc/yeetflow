@@ -234,7 +234,7 @@ class RunContinue(PydanticBaseModel):
             if "action" not in self.input_payload:
                 error_msg = "input_payload must contain an 'action' field"
                 raise ValueError(error_msg)
-            valid_actions = ["continue", "retry", "skip", "cancel"]
+            valid_actions = ["continue"]
             if self.input_payload["action"] not in valid_actions:
                 error_msg = f"action must be one of: {', '.join(valid_actions)}"
                 raise ValueError(error_msg)
