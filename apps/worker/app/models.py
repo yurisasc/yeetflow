@@ -198,11 +198,10 @@ class RunRead(PydanticBaseModel):
 
 class RunUpdate(PydanticBaseModel):
     model_config = ConfigDict(from_attributes=True)
-    status: RunStatus | None = None
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
-    error: str | None = None
     result_uri: str | None = None
+    status: RunStatus | None = None
+    error: str | None = None
+    ended_at: datetime | None = None
 
 
 class SessionCreate(PydanticBaseModel):

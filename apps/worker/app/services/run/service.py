@@ -194,3 +194,25 @@ class RunService:
             await emit_progress(str(run_id), data)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Failed to emit progress for run %s: %s", run_id, str(e))
+
+    async def update_run(
+        self, run_id: UUID, request: dict, session: AsyncSession
+    ) -> Run:
+        """Update an existing run."""
+        run = await self.repository.get_by_id(session, run_id)
+        if not run:
+            error_msg = f"Run {run_id} not found"
+            raise RunNotFoundError(error_msg)
+
+        # Update fields from request
+        if "result_uri" in request:
+            run.result_uri = request["result_uri"]
+        if "status" in request:
+            run.status = request["status"]
+        if "error" in request:
+            run.error = request["error"]
+        if "ended_at" in request:
+            run.ended_at = request["ended_at"]
+
+        run.updated_at = datetime.now(UTC)
+        return await self.repository.update(session, run)

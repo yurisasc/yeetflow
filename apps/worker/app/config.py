@@ -90,6 +90,34 @@ class Settings(BaseSettings):
         description="Directory for storing artifacts",
     )
 
+    # Storage configuration
+    storage_backend: str = Field(
+        default="local",
+        description="Storage backend type (local, s3, gcs, etc.)",
+    )
+
+    # S3-compatible storage settings
+    s3_endpoint_url: str | None = Field(
+        default=None,
+        description="S3-compatible endpoint URL",
+    )
+    s3_access_key: str | None = Field(
+        default=None,
+        description="S3 access key",
+    )
+    s3_secret_key: str | None = Field(
+        default=None,
+        description="S3 secret key",
+    )
+    s3_bucket: str | None = Field(
+        default=None,
+        description="S3 bucket name",
+    )
+    s3_region: str | None = Field(
+        default=None,
+        description="S3 region",
+    )
+
     # Socket.IO configuration
     socketio_cors: str = Field(
         default=DEFAULT_SOCKETIO_CORS,

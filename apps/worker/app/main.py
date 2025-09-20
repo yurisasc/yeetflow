@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.config import settings
 from app.constants import API_TITLE, API_V1_PREFIX, API_VERSION, SERVICE_NAME
 from app.db import engine, init_db
-from app.routers import runs
+from app.routers import artifacts, runs
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app = FastAPI(
 
 
 app.include_router(runs.router, prefix=API_V1_PREFIX, tags=["runs"])
+app.include_router(artifacts.router, prefix=API_V1_PREFIX, tags=["artifacts"])
 
 
 @app.get("/health")
