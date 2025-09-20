@@ -3,6 +3,7 @@ from http import HTTPStatus
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db_session
@@ -14,6 +15,7 @@ from app.models import (
     SessionRead,
 )
 from app.services.run.errors import (
+    InvalidFlowError,
     MissingSessionURLError,
     RunNotFoundError,
     SessionCreationFailedError,
@@ -36,6 +38,23 @@ async def create_run(
     service = RunService()
     try:
         return await service.create_run(request, session)
+    except InvalidFlowError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except IntegrityError as e:
+        # Handle foreign key constraint violations (e.g., invalid flow_id)
+        if "FOREIGN KEY constraint failed" in str(e):
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail="Invalid flow_id: flow does not exist",
+            ) from e
+        # Handle other integrity errors
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Invalid request data",
+        ) from e
     except SessionCreationFailedError as e:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,

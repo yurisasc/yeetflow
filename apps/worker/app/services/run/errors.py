@@ -21,3 +21,10 @@ class RunNotFoundError(RunError):
 
     def __init__(self, run_id: str) -> None:
         super().__init__(f"Run {run_id} not found")
+
+
+class InvalidFlowError(RunError):
+    """Raised when the specified flow_id does not exist."""
+
+    def __init__(self, flow_id: str) -> None:
+        super().__init__(f"Flow {flow_id} does not exist")

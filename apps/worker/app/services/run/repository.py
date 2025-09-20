@@ -36,7 +36,12 @@ class RunRepository:
         self, session: AsyncSession, skip: int = 0, limit: int = 100
     ) -> list[Run]:
         """List runs with pagination."""
-        result = await session.execute(select(Run).offset(skip).limit(limit))
+        result = await session.execute(
+            select(Run)
+            .order_by(Run.created_at.desc(), Run.id.desc())
+            .offset(skip)
+            .limit(limit)
+        )
         return list(result.scalars().all())
 
     async def get_sessions(

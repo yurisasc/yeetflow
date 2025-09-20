@@ -1,3 +1,5 @@
+import itertools
+
 import pytest
 from sqlalchemy import select
 
@@ -34,7 +36,12 @@ class TestQueryPatterns:
         await session.commit()
 
         # Test pagination
-        stmt = select(Run).limit(PAGINATION_LIMIT).offset(1)
+        stmt = (
+            select(Run)
+            .order_by(Run.created_at.desc(), Run.id.desc())
+            .limit(PAGINATION_LIMIT)
+            .offset(1)
+        )
         result = await session.execute(stmt)
         paginated_runs = result.scalars().all()
 
@@ -65,12 +72,20 @@ class TestQueryPatterns:
         assert running_runs[0].status == RunStatus.RUNNING
         assert running_runs[0].user_id == user.id
 
-        # Order by creation time and filter by user
-        stmt = select(Run).where(Run.user_id == user.id).order_by(Run.created_at.desc())
+        # Order by creation time and filter by user and flow
+        stmt = (
+            select(Run)
+            .where(Run.user_id == user.id, Run.flow_id == flow.id)
+            .order_by(Run.created_at.desc(), Run.id.desc())
+        )
         result = await session.execute(stmt)
         ordered_runs = result.scalars().all()
 
         assert len(ordered_runs) == EXPECTED_RUN_COUNT
-        # Should be ordered newest first
-        assert ordered_runs[0].created_at >= ordered_runs[1].created_at
-        assert ordered_runs[1].created_at >= ordered_runs[2].created_at
+        # Should be ordered newest first with proper tie-breaking
+        for prev, curr in itertools.pairwise(ordered_runs):
+            assert (prev.created_at, prev.id) >= (curr.created_at, curr.id)
+
+        # Ensure we got the exact expected runs
+        expected_ids = {run1.id, run2.id, run3.id}
+        assert {r.id for r in ordered_runs} == expected_ids

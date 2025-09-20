@@ -6,7 +6,7 @@
     "test": "uv run pytest tests/ -v",
     "test:contract": "uv run pytest tests/contract/ -v",
     "test:integration": "uv run pytest tests/integration/ -v",
-    "test:unit": "uv run pytest tests/unit/ -v",
+    "test:unit": "uv run pytest -m unit tests/unit/ -v",
     "dev": "uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
     "install-deps": "uv sync",
     "lint": "uv run ruff check .",

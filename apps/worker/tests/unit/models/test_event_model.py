@@ -1,4 +1,7 @@
+from uuid import uuid4
+
 import pytest
+from pydantic import ValidationError
 
 from app.models import Event, EventCreate, EventRead, EventType, Flow, Run, User
 
@@ -60,6 +63,10 @@ class TestEventModel:
         # This test verifies that valid enum values work correctly
         # Invalid enum values would be caught by Pydantic validation before reaching DB
         assert event.type == EventType.ACTION_REQUIRED
+
+    def test_event_type_invalid_value_rejected_by_pydantic(self):
+        with pytest.raises(ValidationError):
+            EventCreate(run_id=uuid4(), type="invalid")  # type: ignore[arg-type]
 
     async def test_event_serialization(self, session):
         """Test Event serialization to API models."""

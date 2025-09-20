@@ -43,7 +43,7 @@ class TestRunsPostContract(BaseTestClass):
         )  # Validation error
 
     def test_post_runs_invalid_flow_id(self):
-        """Test that POST /runs handles invalid flow_id (currently allows creation)."""
+        """Test that POST /runs returns BAD_REQUEST for invalid flow_id."""
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
@@ -51,9 +51,11 @@ class TestRunsPostContract(BaseTestClass):
                 "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         )
-        # Currently the API allows creation with invalid flow IDs
-        # TODO: Add flow validation to return BAD_REQUEST
-        assert response.status_code == HTTPStatus.CREATED
+        # Should return BAD_REQUEST for invalid flow_id
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        data = response.json()
+        assert "detail" in data
+        assert "does not exist" in data["detail"]
 
     def test_post_runs_creates_browser_session(self):
         """Test that POST /runs creates a browser session."""

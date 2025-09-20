@@ -47,7 +47,7 @@ class TestRunsGetContract(BaseTestClass):
         response = self.client.get(f"{self.API_PREFIX}/runs/invalid@format")
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    def test_get_runs_includes_session_url_when_available(self):
+    def test_get_runs_returns_run_details(self):
         """Test that GET /runs/{runId} returns run details."""
         # Create a run
         create_response = self.client.post(
@@ -246,7 +246,6 @@ class TestRunsGetContract(BaseTestClass):
     def test_list_runs_pagination_works(self):
         """Test that GET /runs pagination parameters work correctly."""
         # Create multiple runs
-        run_ids = []
         for _ in range(5):
             response = self.client.post(
                 f"{self.API_PREFIX}/runs",
@@ -256,7 +255,6 @@ class TestRunsGetContract(BaseTestClass):
                 },
             )
             assert response.status_code == HTTPStatus.CREATED
-            run_ids.append(response.json()["id"])
 
         # Test limit parameter
         pagination_limit = 2
