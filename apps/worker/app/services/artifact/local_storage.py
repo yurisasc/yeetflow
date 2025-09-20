@@ -123,6 +123,15 @@ class LocalFileStorage(StorageBackend):
 
     async def exists(self, storage_uri: str) -> bool:
         """Check if artifact exists."""
+
+        async def _check_file():
+            """Check if file exists and is a file."""
+            loop = asyncio.get_running_loop()
+            exists = await loop.run_in_executor(None, file_path.exists)
+            if exists:
+                return await loop.run_in_executor(None, file_path.is_file)
+            return False
+
         try:
             file_path = Path(storage_uri)
             file_path = file_path.resolve()
@@ -134,18 +143,22 @@ class LocalFileStorage(StorageBackend):
             except ValueError:
                 return False
 
-            return file_path.exists() and file_path.is_file()
+            return await _check_file()
         except (OSError, ValueError):
             return False
 
     async def delete(self, storage_uri: str) -> bool:
         """Delete artifact from local file system."""
 
-        def _delete_file():
+        async def _delete_file():
             """Delete the file if it exists."""
-            if file_path.exists() and file_path.is_file():
-                file_path.unlink()
-                return True
+            loop = asyncio.get_running_loop()
+            exists = await loop.run_in_executor(None, file_path.exists)
+            if exists:
+                is_file = await loop.run_in_executor(None, file_path.is_file)
+                if is_file:
+                    await loop.run_in_executor(None, file_path.unlink)
+                    return True
             return False
 
         try:
@@ -159,7 +172,7 @@ class LocalFileStorage(StorageBackend):
             except ValueError:
                 return False
 
-            return _delete_file()
+            return await _delete_file()
         except (OSError, ValueError):
             logger.exception("Failed to delete artifact")
             return False
@@ -168,17 +181,21 @@ class LocalFileStorage(StorageBackend):
         """Get filename and file size."""
         error_msg = "Failed to get file info"
 
-        def _validate_file():
+        async def _validate_file():
             """Validate file existence and type."""
-            if not file_path.exists():
+            loop = asyncio.get_running_loop()
+            exists = await loop.run_in_executor(None, file_path.exists)
+            if not exists:
                 error_msg = "File not found"
                 raise ArtifactAccessError(error_msg) from None
 
-            if not file_path.is_file():
+            is_file = await loop.run_in_executor(None, file_path.is_file)
+            if not is_file:
                 error_msg = "Path is not a file"
                 raise ArtifactAccessError(error_msg) from None
 
-            return file_path.name, file_path.stat().st_size
+            stat_result = await loop.run_in_executor(None, file_path.stat)
+            return file_path.name, stat_result.st_size
 
         try:
             file_path = Path(storage_uri)
@@ -192,7 +209,7 @@ class LocalFileStorage(StorageBackend):
                 error_msg = "Invalid file path"
                 raise ArtifactAccessError(error_msg) from None
 
-            return _validate_file()
+            return await _validate_file()
         except Exception as e:
             logger.exception(error_msg)
             raise ArtifactAccessError(error_msg) from e
