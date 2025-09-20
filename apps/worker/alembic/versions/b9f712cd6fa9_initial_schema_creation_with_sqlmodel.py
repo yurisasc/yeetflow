@@ -83,7 +83,7 @@ def upgrade() -> None:
     op.create_table(
         "session",
         sa.Column("browser_provider_session_id", sa.VARCHAR(), nullable=True),
-        sa.Column("status", sa.VARCHAR(), nullable=False),
+        sa.Column("status", sa.VARCHAR(), nullable=False, server_default="starting"),
         sa.Column("session_url", sa.VARCHAR(), nullable=True),
         sa.Column("created_at", sa.DATETIME(), nullable=False),
         sa.Column("ended_at", sa.DATETIME(), nullable=True),

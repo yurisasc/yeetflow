@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
+import sqlalchemy as sa
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict
 from pydantic import Field as PydField
@@ -31,6 +32,13 @@ class RunStatus(str, Enum):
     FAILED = "failed"
 
 
+class SessionStatus(str, Enum):
+    STARTING = "starting"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    ENDED = "ended"
+
+
 class EventType(str, Enum):
     PROGRESS = "progress"
     ACTION_REQUIRED = "action_required"
@@ -49,7 +57,10 @@ class RunBase(SQLModel):
 
 class SessionBase(SQLModel):
     browser_provider_session_id: str | None = None
-    status: str = Field(default="pending")
+    status: SessionStatus = Field(
+        default=SessionStatus.STARTING,
+        sa_column=Column(sa.VARCHAR(), server_default="starting"),
+    )
     session_url: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     ended_at: datetime | None = None
@@ -183,7 +194,7 @@ class RunCreate(PydanticBaseModel):
 
 
 class RunRead(PydanticBaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
     id: UUID
     flow_id: UUID
     user_id: UUID
@@ -208,16 +219,16 @@ class SessionCreate(PydanticBaseModel):
     model_config = ConfigDict(from_attributes=True)
     run_id: UUID
     browser_provider_session_id: str | None = None
-    status: str = "pending"
+    status: SessionStatus = SessionStatus.STARTING
     session_url: str | None = None
 
 
 class SessionRead(PydanticBaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
     id: UUID
     run_id: UUID
     browser_provider_session_id: str | None = None
-    status: str
+    status: SessionStatus
     session_url: str | None = None
     created_at: datetime
     ended_at: datetime | None = None
