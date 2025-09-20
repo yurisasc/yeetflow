@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models import Run
+from app.models import Event, Run
 from app.models import Session as SessionModel
 
 logger = logging.getLogger(__name__)
@@ -61,3 +61,10 @@ class RunRepository:
         await session.commit()
         await session.refresh(session_model)
         return session_model
+
+    async def get_events(self, session: AsyncSession, run_id: UUID) -> list[Event]:
+        """Get all events for a specific run."""
+        result = await session.execute(
+            select(Event).where(Event.run_id == run_id).order_by(Event.at)
+        )
+        return list(result.scalars().all())
