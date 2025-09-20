@@ -32,8 +32,7 @@ class ArtifactService:
         run = await self.repository.get_run_with_artifact(session, run_id)
 
         if not run:
-            error_msg = f"Run {run_id} not found"
-            raise RunNotFoundError(error_msg)
+            raise RunNotFoundError(str(run_id))
 
         if not run.result_uri:
             error_msg = f"No artifact available for run {run_id}"

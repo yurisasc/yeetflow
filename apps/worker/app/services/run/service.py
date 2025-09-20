@@ -208,13 +208,7 @@ class RunService:
         if "result_uri" in request:
             run.result_uri = request["result_uri"]
         if "status" in request:
-            new_status = request["status"]
-            if not self._is_valid_status_transition(run.status, new_status):
-                error_msg = (
-                    f"Invalid status transition from {run.status} to {new_status}"
-                )
-                raise ValueError(error_msg)
-            run.status = new_status
+            run.status = request["status"]
         if "error" in request:
             run.error = request["error"]
         if "ended_at" in request:

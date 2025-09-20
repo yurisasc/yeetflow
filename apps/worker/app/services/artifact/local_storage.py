@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -21,6 +20,19 @@ class LocalFileStorage(StorageBackend):
         self.base_path = Path(base_path or settings.artifacts_dir)
         self.base_path.mkdir(parents=True, exist_ok=True)
 
+    def _validate_filename(self, filename: str) -> str:
+        """Validate and sanitize filename to prevent path traversal."""
+        # Extract just the basename to remove any path separators or
+        # parent references
+        safe_name = Path(filename).name
+
+        # Ensure we got a valid filename after sanitization
+        if not safe_name:
+            error_msg = "Invalid filename provided"
+            raise ArtifactAccessError(error_msg) from None
+
+        return safe_name
+
     async def store(self, run_id: UUID, filename: str, content: bytes) -> str:
         """Store artifact in local file system."""
         try:
@@ -28,11 +40,33 @@ class LocalFileStorage(StorageBackend):
             run_dir = self.base_path / str(run_id)
             run_dir.mkdir(parents=True, exist_ok=True)
 
-            # Store file
-            file_path = run_dir / filename
-            file_path.write_bytes(content)
+            # Validate and sanitize filename
+            safe_name = self._validate_filename(filename)
 
-            return str(file_path.resolve())
+            # Construct target path within run directory
+            target_path = run_dir / safe_name
+
+            # Resolve both paths to absolute paths for security check
+            resolved_run_dir = run_dir.resolve()
+            resolved_target = target_path.resolve()
+
+            # Security check: ensure target is within run directory
+            # This prevents path traversal even if Path.name didn't catch everything
+            try:
+                resolved_target.relative_to(resolved_run_dir)
+            except ValueError as err:
+                logger.warning(
+                    "Path traversal attempt blocked: %s -> %s",
+                    filename,
+                    str(resolved_target),
+                )
+                error_msg = "Invalid filename: path traversal not allowed"
+                raise ArtifactAccessError(error_msg) from err
+
+            # Only write the file after all security checks pass
+            target_path.write_bytes(content)
+
+            return str(resolved_target)
 
         except Exception as e:
             logger.exception("Failed to store artifact for run %s", run_id)
@@ -60,11 +94,7 @@ class LocalFileStorage(StorageBackend):
                 error_msg = "Path is not a file"
                 raise ArtifactAccessError(error_msg) from None
 
-        def _read_file_chunks(file_path):
-            """Generator to read file in chunks."""
-            with file_path.open("rb") as f:
-                while chunk := f.read(8192):
-                    yield chunk
+        chunk_size = 8192
 
         try:
             file_path = Path(storage_uri)
@@ -76,12 +106,13 @@ class LocalFileStorage(StorageBackend):
             _validate_and_check_file()
 
             # Use thread pool for async file I/O to avoid blocking
-            loop = asyncio.get_event_loop()
-            chunk_generator = await loop.run_in_executor(
-                None, partial(_read_file_chunks, file_path)
-            )
-            for chunk in chunk_generator:
-                yield chunk
+            loop = asyncio.get_running_loop()
+            with file_path.open("rb") as f:
+                while True:
+                    chunk = await loop.run_in_executor(None, f.read, chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
 
         except Exception as e:
             error_msg = "Failed to retrieve artifact"
