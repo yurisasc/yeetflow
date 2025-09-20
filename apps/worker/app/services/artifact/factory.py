@@ -19,5 +19,14 @@ def get_storage_backend() -> StorageBackend:
     raise ValueError(error_msg)
 
 
-# Global storage backend instance
-storage_backend = get_storage_backend()
+# Global storage backend instance (lazily initialized)
+_STORAGE_BACKEND: StorageBackend | None = None
+
+
+def get_storage() -> StorageBackend:
+    """Get or create the storage backend instance."""
+    if _STORAGE_BACKEND is None:
+        backend = get_storage_backend()
+        # Update the module-level variable
+        globals()["_STORAGE_BACKEND"] = backend
+    return _STORAGE_BACKEND

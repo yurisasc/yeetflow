@@ -1,7 +1,9 @@
 """Local file system storage backend."""
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
+from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -46,11 +48,9 @@ class LocalFileStorage(StorageBackend):
             try:
                 file_path.relative_to(base_path)
             except ValueError:
-                # Allow absolute paths that are within base directory
-                if not str(file_path).startswith(str(base_path)):
-                    logger.warning("Path traversal attempt: %s", storage_uri)
-                    error_msg = "Invalid file path"
-                    raise ArtifactAccessError(error_msg) from None
+                logger.warning("Path traversal attempt: %s", storage_uri)
+                error_msg = "Invalid file path"
+                raise ArtifactAccessError(error_msg) from None
 
             if not file_path.exists():
                 error_msg = "File not found"
@@ -59,6 +59,12 @@ class LocalFileStorage(StorageBackend):
             if not file_path.is_file():
                 error_msg = "Path is not a file"
                 raise ArtifactAccessError(error_msg) from None
+
+        def _read_file_chunks(file_path):
+            """Generator to read file in chunks."""
+            with file_path.open("rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
 
         try:
             file_path = Path(storage_uri)
@@ -69,10 +75,13 @@ class LocalFileStorage(StorageBackend):
 
             _validate_and_check_file()
 
-            # Stream file in chunks
-            with file_path.open("rb") as f:
-                while chunk := f.read(8192):
-                    yield chunk
+            # Use thread pool for async file I/O to avoid blocking
+            loop = asyncio.get_event_loop()
+            chunk_generator = await loop.run_in_executor(
+                None, partial(_read_file_chunks, file_path)
+            )
+            for chunk in chunk_generator:
+                yield chunk
 
         except Exception as e:
             error_msg = "Failed to retrieve artifact"
@@ -83,6 +92,15 @@ class LocalFileStorage(StorageBackend):
         """Check if artifact exists."""
         try:
             file_path = Path(storage_uri)
+            file_path = file_path.resolve()
+            base_path = self.base_path.resolve()
+
+            # Validate path is within base directory
+            try:
+                file_path.relative_to(base_path)
+            except ValueError:
+                return False
+
             return file_path.exists() and file_path.is_file()
         except (OSError, ValueError):
             return False
@@ -99,6 +117,15 @@ class LocalFileStorage(StorageBackend):
 
         try:
             file_path = Path(storage_uri)
+            file_path = file_path.resolve()
+            base_path = self.base_path.resolve()
+
+            # Validate path is within base directory
+            try:
+                file_path.relative_to(base_path)
+            except ValueError:
+                return False
+
             return _delete_file()
         except (OSError, ValueError):
             logger.exception("Failed to delete artifact")
@@ -123,6 +150,15 @@ class LocalFileStorage(StorageBackend):
         try:
             file_path = Path(storage_uri)
             file_path = file_path.resolve()
+            base_path = self.base_path.resolve()
+
+            # Validate path is within base directory
+            try:
+                file_path.relative_to(base_path)
+            except ValueError:
+                error_msg = "Invalid file path"
+                raise ArtifactAccessError(error_msg) from None
+
             return _validate_file()
         except Exception as e:
             logger.exception(error_msg)

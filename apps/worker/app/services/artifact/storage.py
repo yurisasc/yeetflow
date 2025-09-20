@@ -2,10 +2,11 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 from uuid import UUID
 
 
+@runtime_checkable
 class ArtifactStorage(Protocol):
     """Protocol defining the storage interface for artifacts."""
 
