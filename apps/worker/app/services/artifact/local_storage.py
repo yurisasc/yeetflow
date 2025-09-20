@@ -64,7 +64,9 @@ class LocalFileStorage(StorageBackend):
                 raise ArtifactAccessError(error_msg) from err
 
             # Only write the file after all security checks pass
-            target_path.write_bytes(content)
+            # Use thread pool for async file I/O to avoid blocking
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, target_path.write_bytes, content)
 
             return str(resolved_target)
 
