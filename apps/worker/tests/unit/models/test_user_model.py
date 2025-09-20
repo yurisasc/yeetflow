@@ -24,8 +24,8 @@ class TestUserModel:
         )
 
         # Create user
-        user = User(**user_data.model_dump())
-        user.password_hash = user_data.password  # Simulate password hashing
+        payload = user_data.model_dump(exclude={"password"})
+        user = User(**payload, password_hash=user_data.password)  # Simulate hashing
         session.add(user)
         await session.commit()
         await session.refresh(user)
@@ -54,6 +54,7 @@ class TestUserModel:
 
         with pytest.raises(IntegrityError):
             await session.commit()
+        await session.rollback()
 
     async def test_user_serialization(self, session):
         """Test User serialization to API models."""

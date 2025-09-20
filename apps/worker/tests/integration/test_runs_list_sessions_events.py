@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 import pytest
 
+from app.models import EventType
 from tests.conftest import BaseTestClass
 
 
@@ -32,6 +33,9 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
 
         assert isinstance(runs, list)
         assert len(runs) >= expected_run_count
+        listed_ids = {r["id"] for r in runs}
+        for rid in run_ids:
+            assert rid in listed_ids
 
         # Verify we can retrieve each created run
         for run_id in run_ids:
@@ -57,7 +61,7 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         response = self.client.get(f"{self.API_PREFIX}/runs?limit={pagination_limit}")
         assert response.status_code == HTTPStatus.OK
         limited_runs = response.json()
-        assert len(limited_runs) <= pagination_limit
+        assert len(limited_runs) == min(pagination_limit, run_count)
 
         # Test pagination with skip
         skip_count = 3
@@ -66,7 +70,14 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         )
         assert response.status_code == HTTPStatus.OK
         skipped_runs = response.json()
-        assert len(skipped_runs) <= pagination_limit
+        assert len(skipped_runs) == min(
+            pagination_limit, max(0, run_count - skip_count)
+        )
+        # Optional: ensure pages don't overlap when enough items exist
+        if len(limited_runs) == pagination_limit and len(skipped_runs) > 0:
+            assert {r["id"] for r in limited_runs}.isdisjoint(
+                {r["id"] for r in skipped_runs}
+            )
 
     def test_get_run_sessions_integration(self):
         """Integration test for GET /runs/{runId}/sessions endpoint."""
@@ -145,20 +156,14 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         assert isinstance(events, list)
 
         # Events might be empty initially, but if they exist, verify structure
+        allowed_types = {t.value for t in EventType}
         for event in events:
             assert "id" in event
             assert "run_id" in event
             assert event["run_id"] == run_id
             assert "type" in event
             assert "at" in event
-            # Verify event type is valid
-            assert event["type"] in [
-                "progress",
-                "action_required",
-                "action_ack",
-                "completed",
-                "failed",
-            ]
+            assert event["type"] in allowed_types
 
     def test_endpoints_consistency_across_runs(self):
         """Integration test to verify all endpoints work consistently."""
@@ -223,5 +228,7 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
             # Each page should have at most page_size items
             assert len(page_runs) <= page_size
 
-        # Should be able to retrieve all runs through pagination
+        # Should retrieve all created runs exactly once
+        all_ids = [r["id"] for r in all_runs]
+        assert len(set(all_ids)) == len(all_ids)
         assert len(all_runs) >= run_count

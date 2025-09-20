@@ -67,6 +67,7 @@ class TestFlowModel:
 
         with pytest.raises(IntegrityError):
             await session.commit()
+        await session.rollback()
 
     async def test_flow_serialization(self, session):
         """Test Flow serialization to API models."""

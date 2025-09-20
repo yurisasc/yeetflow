@@ -11,7 +11,7 @@ COMPLETE_REL_PASSWORD = "completerel_password_hash"
 CASCADE_REL_PASSWORD = "cascaderel_password_hash"
 
 # Magic value constants
-EXPECTED_SESSION_COUNT = 2
+EXPECTED_FLOW_COUNT = 2
 EXPECTED_EVENT_COUNT = 2
 
 
@@ -33,7 +33,7 @@ class TestRelationshipsAndCascades:
         result = await session.execute(stmt)
         user_with_flows = result.scalar_one()
 
-        assert len(user_with_flows.flows) == EXPECTED_SESSION_COUNT
+        assert len(user_with_flows.flows) == EXPECTED_FLOW_COUNT
         flow_keys = [f.key for f in user_with_flows.flows]
         assert "rel-flow1" in flow_keys
         assert "rel-flow2" in flow_keys
@@ -78,7 +78,7 @@ class TestRelationshipsAndCascades:
 
         assert complete_run.user.email == user.email
         assert complete_run.flow.key == flow.key
-        assert len(complete_run.sessions) == EXPECTED_SESSION_COUNT
+        assert len(complete_run.sessions) == EXPECTED_FLOW_COUNT
         assert len(complete_run.events) == EXPECTED_EVENT_COUNT
         assert complete_run.status == RunStatus.RUNNING
 

@@ -34,7 +34,12 @@ class TestQueryPatterns:
         await session.commit()
 
         # Test pagination
-        stmt = select(Run).limit(PAGINATION_LIMIT).offset(1)
+        stmt = (
+            select(Run)
+            .order_by(Run.created_at.desc(), Run.id.desc())
+            .limit(PAGINATION_LIMIT)
+            .offset(1)
+        )
         result = await session.execute(stmt)
         paginated_runs = result.scalars().all()
 
@@ -66,7 +71,11 @@ class TestQueryPatterns:
         assert running_runs[0].user_id == user.id
 
         # Order by creation time and filter by user
-        stmt = select(Run).where(Run.user_id == user.id).order_by(Run.created_at.desc())
+        stmt = (
+            select(Run)
+            .where(Run.user_id == user.id)
+            .order_by(Run.created_at.desc(), Run.id.desc())
+        )
         result = await session.execute(stmt)
         ordered_runs = result.scalars().all()
 

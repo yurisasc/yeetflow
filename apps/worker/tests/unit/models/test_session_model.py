@@ -22,13 +22,15 @@ class TestSessionModel:
         )
         flow = Flow(key="session-flow", name="Session Flow", created_by=user.id)
         run = Run(flow_id=flow.id, user_id=user.id)
-        session.add_all([user, flow, run])
+        session.add_all([user, flow])
+        await session.flush()
+        session.add(run)
         await session.commit()
         await session.refresh(run)
 
         # Create session
         session_data = SessionCreate(run_id=run.id)
-        db_session = DBSession(**session_data.model_dump())
+        db_session = DBSession(**session_data.model_dump(exclude_unset=True))
         session.add(db_session)
         await session.commit()
         await session.refresh(db_session)

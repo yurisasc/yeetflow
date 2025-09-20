@@ -36,8 +36,8 @@ class BaseTestClass:
 
     async def _set_run_status_async(self, run_id: str, status: RunStatus):
         """Async helper method to set run status directly in the database."""
-        async with get_db_session() as session:
-            result = await session.execute(select(Run).where(Run.id == run_id))
+        async with self.TestAsyncSessionLocal() as session:
+            result = await session.execute(select(Run).where(Run.id == UUID(run_id)))
             run = result.scalar_one_or_none()
             if run:
                 run.status = status
@@ -66,14 +66,12 @@ class BaseTestClass:
         # Create a test session factory that uses our test database
         self.test_engine = create_async_engine(self.test_db_url, echo=False)
 
-        # Register event listener for SQLite foreign keys (same as production)
+        # Enforce SQLite FKs for all conns
         @event.listens_for(self.test_engine.sync_engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, _):
-            """Enable foreign key constraints for every SQLite connection."""
-            if "sqlite" in self.test_db_url:
-                cursor = dbapi_connection.cursor()
-                cursor.execute("PRAGMA foreign_keys = ON")
-                cursor.close()
+        def _fk_on(dbapi_connection, connection_record):  # noqa: ARG001
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
 
         # Create tables in the test database
         async def create_tables():
@@ -175,6 +173,9 @@ class BaseTestClass:
         # Clear dependency overrides
         app.dependency_overrides = {}
         # Clean up temporary database file
+        # Ensure engine is closed before unlink
+        with contextlib.suppress(Exception):
+            asyncio.run(self.test_engine.dispose())
         with contextlib.suppress(OSError, FileNotFoundError):
             Path(self.temp_db.name).unlink()
 

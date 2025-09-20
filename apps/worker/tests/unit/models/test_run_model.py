@@ -11,7 +11,6 @@ from app.models import Flow, Run, RunCreate, RunStatus, User
 RUN_USER_PASSWORD = "runuser_password_hash"
 STATUS_USER_PASSWORD = "statususer_password_hash"
 FKTEST_PASSWORD = "fktest_password_hash"
-INVALID_UUID = "00000000-0000-0000-0000-000000000000"
 
 
 @pytest.mark.unit
@@ -93,3 +92,4 @@ class TestRunModel:
         # SQLite with foreign keys enabled should raise IntegrityError
         with pytest.raises(IntegrityError):
             await session.commit()
+        await session.rollback()
