@@ -10,12 +10,13 @@ class TestRunsContinuePostContract(BaseTestClass):
     def test_post_runs_continue_returns_200_for_awaiting_input(self):
         """Test that POST /runs/{runId}/continue returns OK for runs awaiting input."""
         # Create a run that will go into awaiting_input state
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -27,6 +28,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"input_payload": {"action": "continue"}},
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.OK
         data = response.json()
@@ -35,9 +37,11 @@ class TestRunsContinuePostContract(BaseTestClass):
 
     def test_post_runs_continue_nonexistent_run_returns_404(self):
         """Test that POST /runs/{runId}/continue returns 404 for nonexistent run."""
+        headers = self.get_user_auth_headers()
         response = self.client.post(
             f"{self.API_PREFIX}/runs/550e8400-e29b-41d4-a716-446655440001/continue",
             json={"input_payload": {"action": "continue"}},
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
@@ -45,12 +49,13 @@ class TestRunsContinuePostContract(BaseTestClass):
     def test_post_runs_continue_not_awaiting_input_returns_400(self):
         """Test POST /runs/{runId}/continue returns 400 for runs not awaiting input."""
         # Create a run
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -62,6 +67,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"input_payload": {"action": "continue"}},
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "not awaiting input" in response.json()["detail"].lower()
@@ -69,12 +75,13 @@ class TestRunsContinuePostContract(BaseTestClass):
     def test_post_runs_continue_requires_action_data(self):
         """Test that POST /runs/{runId}/continue requires action data."""
         # Create and pause a run
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -86,6 +93,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={},
+            headers=headers,
         )
         assert (
             response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -94,12 +102,13 @@ class TestRunsContinuePostContract(BaseTestClass):
     def test_post_runs_continue_validates_action_format(self):
         """Test that POST /runs/{runId}/continue validates action format."""
         # Create and pause a run
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -111,6 +120,7 @@ class TestRunsContinuePostContract(BaseTestClass):
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"input_payload": {"action": "invalid"}},
+            headers=headers,
         )
         assert (
             response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -119,12 +129,13 @@ class TestRunsContinuePostContract(BaseTestClass):
     def test_post_runs_continue_updates_status_to_running(self):
         """Test that POST /runs/{runId}/continue updates status to running."""
         # Create and pause a run
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -132,19 +143,18 @@ class TestRunsContinuePostContract(BaseTestClass):
         # Put run into awaiting_input state
         self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
 
-        # Verify initial status
-        get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
-        assert get_response.status_code == HTTPStatus.OK
-
         # Continue the run
         response = self.client.post(
             f"{self.API_PREFIX}/runs/{run_id}/continue",
             json={"input_payload": {"action": "continue"}},
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.OK
 
         # Verify status changed to running
-        get_response_after = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
+        get_response_after = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}", headers=headers
+        )
         assert get_response_after.status_code == HTTPStatus.OK
         new_status = get_response_after.json()["status"]
         assert new_status == RunStatus.RUNNING

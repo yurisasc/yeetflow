@@ -14,6 +14,8 @@ from app.models import (
     RunRead,
     RunUpdate,
     SessionRead,
+    User,
+    UserRole,
 )
 from app.services.run.errors import (
     InvalidFlowError,
@@ -22,8 +24,10 @@ from app.services.run.errors import (
     SessionCreationFailedError,
 )
 from app.services.run.service import RunService
+from app.utils.auth import get_current_user
 
 db_dependency = Depends(get_db_session)
+current_user_dependency = Depends(get_current_user)
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +37,13 @@ router = APIRouter()
 @router.post("/runs", response_model=RunRead, status_code=HTTPStatus.CREATED)
 async def create_run(
     request: RunCreate,
+    current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):
     """Create a new run, initialize Steel.dev session, and return run details."""
     service = RunService()
     try:
-        return await service.create_run(request, session)
+        return await service.create_run_with_user(request, current_user, session)
     except InvalidFlowError as e:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
@@ -69,44 +74,86 @@ async def create_run(
 
 
 @router.get("/runs/{run_id}", response_model=RunRead)
-async def get_run(run_id: UUID, session: AsyncSession = db_dependency):
+async def get_run(
+    run_id: UUID,
+    current_user: User = current_user_dependency,
+    session: AsyncSession = db_dependency,
+):
     """Get details of a specific run by ID."""
     service = RunService()
     try:
-        return await service.get_run(run_id, session)
+        run = await service.get_run(run_id, session)
+
+        # Check if user owns this run or is admin
+        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Not authorized to access this run",
+            )
+
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+    else:
+        return run
 
 
 @router.get("/runs", response_model=list[RunRead])
 async def list_runs(
     skip: int = Query(0, ge=0, le=1_000_000),
     limit: int = Query(100, ge=1, le=1000),
+    current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):
-    """List all runs with pagination."""
+    """List runs with pagination. Regular users see only their runs, admins see all."""
     service = RunService()
-    return await service.list_runs(session, skip, limit)
+
+    # Filter runs based on user role
+    if current_user.role == UserRole.ADMIN:
+        # Admins can see all runs
+        return await service.list_runs(session, skip, limit)
+    # Regular users can only see their own runs
+    return await service.list_runs_for_user(current_user.id, session, skip, limit)
 
 
 @router.get("/runs/{run_id}/sessions", response_model=list[SessionRead])
 async def get_run_sessions(
     run_id: UUID,
+    current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):
     """Get all sessions for a specific run."""
     service = RunService()
     try:
+        # First check if user has access to this run
+        run = await service.get_run(run_id, session)
+        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Not authorized to access this run",
+            )
+
         return await service.get_run_sessions(run_id, session)
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
 
 
 @router.get("/runs/{run_id}/events", response_model=list[EventRead])
-async def get_run_events(run_id: UUID, session: AsyncSession = db_dependency):
+async def get_run_events(
+    run_id: UUID,
+    current_user: User = current_user_dependency,
+    session: AsyncSession = db_dependency,
+):
     """Get all events for a specific run."""
     service = RunService()
     try:
+        # First check if user has access to this run
+        run = await service.get_run(run_id, session)
+        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Not authorized to access this run",
+            )
+
         return await service.get_run_events(run_id, session)
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
@@ -116,11 +163,20 @@ async def get_run_events(run_id: UUID, session: AsyncSession = db_dependency):
 async def update_run(
     run_id: UUID,
     request: RunUpdate,
+    current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):
     """Update an existing run."""
     service = RunService()
     try:
+        # First check if user has access to this run
+        run = await service.get_run(run_id, session)
+        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Not authorized to access this run",
+            )
+
         return await service.update_run(
             run_id, request.model_dump(exclude_unset=True), session
         )
@@ -132,11 +188,20 @@ async def update_run(
 async def continue_run(
     run_id: UUID,
     request: RunContinue,
+    current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):
     """Continue a run that is awaiting input."""
     service = RunService()
     try:
+        # First check if user has access to this run
+        run = await service.get_run(run_id, session)
+        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Not authorized to access this run",
+            )
+
         return await service.continue_run(run_id, request, session)
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e

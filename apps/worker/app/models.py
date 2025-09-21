@@ -11,10 +11,15 @@ from sqlalchemy.dialects.sqlite import JSON
 from sqlmodel import Column, Field, ForeignKey, Relationship, SQLModel
 
 
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
+
+
 class UserBase(SQLModel):
     email: str = Field(index=True, unique=True)
     name: str | None = None
-    role: str = Field(default="user")
+    role: UserRole = Field(default=UserRole.USER)
 
 
 class FlowBase(SQLModel):
@@ -151,6 +156,7 @@ class UserCreate(PydanticBaseModel):
     email: str
     name: str | None = None
     password: str
+    role: UserRole = UserRole.USER
 
 
 class UserRead(PydanticBaseModel):
@@ -158,7 +164,7 @@ class UserRead(PydanticBaseModel):
     id: UUID
     email: str
     name: str | None = None
-    role: str
+    role: UserRole
     created_at: datetime
     updated_at: datetime
 
@@ -191,7 +197,6 @@ class FlowRead(PydanticBaseModel):
 class RunCreate(PydanticBaseModel):
     model_config = ConfigDict(from_attributes=True)
     flow_id: UUID
-    user_id: UUID
 
 
 class RunRead(PydanticBaseModel):

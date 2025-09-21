@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from app.models import Flow, Run, RunCreate, RunStatus, User
+from app.models import Flow, Run, RunStatus, User
 
 # Test constants
 RUN_USER_PASSWORD = "runuser_password_hash"
@@ -19,17 +19,20 @@ class TestRunModel:
 
     async def test_create_run_with_relationships(self, session):
         """Test creating Run with User and Flow relationships."""
-        # Create user and flow first
+        # Create user first and commit to get the ID
         user = User(email="runuser@example.com", password_hash=RUN_USER_PASSWORD)
-        flow = Flow(key="run-flow", name="Run Flow", created_by=user.id)
-        session.add_all([user, flow])
+        session.add(user)
         await session.commit()
         await session.refresh(user)
+
+        # Now create flow with the user's ID
+        flow = Flow(key="run-flow", name="Run Flow", created_by=user.id)
+        session.add(flow)
+        await session.commit()
         await session.refresh(flow)
 
         # Create run
-        run_data = RunCreate(flow_id=flow.id, user_id=user.id)
-        run = Run(**run_data.model_dump())
+        run = Run(flow_id=flow.id, user_id=user.id)
         session.add(run)
         await session.commit()
         await session.refresh(run)
@@ -51,10 +54,15 @@ class TestRunModel:
 
     async def test_run_status_enum_constraint(self, session):
         """Test Run status enum validation."""
-        # Create user and flow first
+        # Create user first and commit to get the ID
         user = User(email="statususer@example.com", password_hash=STATUS_USER_PASSWORD)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Now create flow with the user's ID
         flow = Flow(key="status-flow", name="Status Flow", created_by=user.id)
-        session.add_all([user, flow])
+        session.add(flow)
         await session.commit()
 
         # Valid status should work
@@ -73,8 +81,13 @@ class TestRunModel:
 
         # First, verify that valid foreign keys work
         user = User(email="fktest@example.com", password_hash=FKTEST_PASSWORD)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Now create flow with the user's ID
         flow = Flow(key="fktest-flow", name="FK Test Flow", created_by=user.id)
-        session.add_all([user, flow])
+        session.add(flow)
         await session.commit()
 
         # This should work - valid foreign keys

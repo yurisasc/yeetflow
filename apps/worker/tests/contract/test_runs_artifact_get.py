@@ -11,13 +11,14 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
     def test_get_runs_artifact_returns_200_with_file(self):
         """Test GET /runs/{runId}/artifact returns OK with file for completed runs."""
-        # First create a run
+        # First create a run with authentication
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -32,12 +33,16 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
         # Update run with artifact path
         update_response = self.client.patch(
-            f"{self.API_PREFIX}/runs/{run_id}", json={"result_uri": str(test_file)}
+            f"{self.API_PREFIX}/runs/{run_id}",
+            json={"result_uri": str(test_file)},
+            headers=headers,
         )
         assert update_response.status_code == HTTPStatus.OK
 
         # Get the artifact
-        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/artifact", headers=headers
+        )
         assert response.status_code == HTTPStatus.OK
         # Should return file content
         assert len(response.content) > 0
@@ -50,8 +55,10 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
     def test_get_runs_artifact_nonexistent_run_returns_404(self):
         """Test that GET /runs/{runId}/artifact returns 404 for nonexistent run."""
+        headers = self.get_user_auth_headers()
         response = self.client.get(
             f"{self.API_PREFIX}/runs/00000000-0000-0000-0000-000000000000/artifact",
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
@@ -60,30 +67,34 @@ class TestRunsArtifactGetContract(BaseTestClass):
         """Test that GET /runs/{runId}/artifact returns 404 for runs
         without artifacts."""
         # Create a run without artifact
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
 
         # Get the artifact (should return 404 since no artifact)
-        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/artifact", headers=headers
+        )
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "no artifact available" in response.json()["detail"].lower()
 
     def test_get_runs_artifact_content_disposition(self):
         """Test GET /runs/{runId}/artifact proper content-disposition header."""
         # Create a run with artifact
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -98,11 +109,15 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
         # Update run with artifact path
         update_response = self.client.patch(
-            f"{self.API_PREFIX}/runs/{run_id}", json={"result_uri": str(test_file)}
+            f"{self.API_PREFIX}/runs/{run_id}",
+            json={"result_uri": str(test_file)},
+            headers=headers,
         )
         assert update_response.status_code == HTTPStatus.OK
 
-        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/artifact", headers=headers
+        )
         assert response.status_code == HTTPStatus.OK
         assert response.headers.get("content-disposition")
         assert "attachment" in response.headers.get("content-disposition", "")
@@ -111,12 +126,13 @@ class TestRunsArtifactGetContract(BaseTestClass):
     def test_get_runs_artifact_large_file_handling(self):
         """Test that GET /runs/{runId}/artifact handles large files correctly."""
         # Create a run with large artifact
+        headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
@@ -131,12 +147,16 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
         # Update run with artifact path
         update_response = self.client.patch(
-            f"{self.API_PREFIX}/runs/{run_id}", json={"result_uri": str(large_file)}
+            f"{self.API_PREFIX}/runs/{run_id}",
+            json={"result_uri": str(large_file)},
+            headers=headers,
         )
         assert update_response.status_code == HTTPStatus.OK
 
         # Get the artifact
-        response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/artifact")
+        response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/artifact", headers=headers
+        )
 
         # Should return HTTPStatus.OK even for large files
         assert response.status_code == HTTPStatus.OK
@@ -165,7 +185,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
         # This tests range request support for large files
         range_response = self.client.get(
             f"{self.API_PREFIX}/runs/{run_id}/artifact",
-            headers={"Range": "bytes=0-99"},  # Request first 100 bytes
+            headers={"Range": "bytes=0-99", **headers},
         )
 
         # Should return HTTPStatus.PARTIAL_CONTENT if range requests are supported

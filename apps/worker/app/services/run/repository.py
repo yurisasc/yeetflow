@@ -44,6 +44,19 @@ class RunRepository:
         )
         return list(result.scalars().all())
 
+    async def list_runs_for_user(
+        self, session: AsyncSession, user_id: UUID, skip: int = 0, limit: int = 100
+    ) -> list[Run]:
+        """List runs for a specific user with pagination."""
+        result = await session.execute(
+            select(Run)
+            .where(Run.user_id == user_id)
+            .order_by(Run.created_at.desc(), Run.id.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def get_sessions(
         self, session: AsyncSession, run_id: UUID
     ) -> list[SessionModel]:

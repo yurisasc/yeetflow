@@ -46,7 +46,7 @@ class SteelService:
                 },
             )
 
-            if should_retry_http_response(response):
+            if not should_retry_http_response(response):
                 response.raise_for_status()
 
             if response.status_code != HTTPStatus.CREATED:
@@ -82,7 +82,7 @@ class SteelService:
                 headers={"steel-api-key": self.api_key},
             )
 
-            if should_retry_http_response(response):
+            if not should_retry_http_response(response):
                 response.raise_for_status()
 
             success = response.status_code in (HTTPStatus.OK, HTTPStatus.NO_CONTENT)

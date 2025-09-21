@@ -12,13 +12,14 @@ class TestStartFlowIntegration(BaseTestClass):
 
     def test_start_flow_creates_run_with_session_url(self):
         """Test that starting a flow creates a run with session URL."""
-        # Start a flow
+        # Start a flow with authentication
+        headers = self.get_user_auth_headers()
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -29,14 +30,18 @@ class TestStartFlowIntegration(BaseTestClass):
         run_id = data["id"]
 
         # Verify the run was created
-        get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
+        get_response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}", headers=headers
+        )
         assert get_response.status_code == HTTPStatus.OK
         run_data = get_response.json()
         assert run_data["id"] == run_id
         assert run_data["status"] in ["pending", "running"]
 
         # Check that sessions were created for this run
-        sessions_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/sessions")
+        sessions_response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/sessions", headers=headers
+        )
         assert sessions_response.status_code == HTTPStatus.OK
         sessions = sessions_response.json()
         assert len(sessions) > 0  # Should have at least one session
@@ -45,13 +50,14 @@ class TestStartFlowIntegration(BaseTestClass):
 
     def test_start_flow_status_transitions_to_running(self):
         """Test that flow status transitions to running after creation."""
-        # Start a flow
+        # Start a flow with authentication
+        headers = self.get_user_auth_headers()
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -60,7 +66,9 @@ class TestStartFlowIntegration(BaseTestClass):
         # Poll for status update with timeout
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
-            get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
+            get_response = self.client.get(
+                f"{self.API_PREFIX}/runs/{run_id}", headers=headers
+            )
             assert get_response.status_code == HTTPStatus.OK
             if get_response.json().get("status") == "running":
                 break
@@ -69,20 +77,24 @@ class TestStartFlowIntegration(BaseTestClass):
             pytest.fail("Status did not transition to 'running' within 5.0 seconds")
 
         # Check status
-        get_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
+        get_response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}", headers=headers
+        )
         assert get_response.status_code == HTTPStatus.OK
         run_data = get_response.json()
         assert run_data["status"] == "running"
 
     def test_start_flow_creates_unique_run_ids(self):
         """Test that starting multiple flows creates unique run IDs."""
+        headers = self.get_user_auth_headers()
+
         # Start first flow
         response1 = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert response1.status_code == HTTPStatus.CREATED
         run_id1 = response1.json()["id"]
@@ -92,8 +104,8 @@ class TestStartFlowIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert response2.status_code == HTTPStatus.CREATED
         run_id2 = response2.json()["id"]
@@ -103,19 +115,22 @@ class TestStartFlowIntegration(BaseTestClass):
 
     def test_start_flow_initializes_browser_session(self):
         """Test that starting a flow initializes a browser session via Steel.dev."""
-        # Start a flow
+        # Start a flow with authentication
+        headers = self.get_user_auth_headers()
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.CREATED
         run_id = response.json()["id"]
 
         # Check that sessions were created for this run
-        sessions_response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}/sessions")
+        sessions_response = self.client.get(
+            f"{self.API_PREFIX}/runs/{run_id}/sessions", headers=headers
+        )
         assert sessions_response.status_code == HTTPStatus.OK
         sessions = sessions_response.json()
         assert len(sessions) > 0  # Should have at least one session
@@ -129,14 +144,15 @@ class TestStartFlowIntegration(BaseTestClass):
         # This would require async testing or multiple clients
 
         # For now, test sequential requests
+        headers = self.get_user_auth_headers()
         responses = []
         for _i in range(3):
             response = self.client.post(
                 f"{self.API_PREFIX}/runs",
                 json={
                     "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "user_id": "550e8400-e29b-41d4-a716-446655440000",
                 },
+                headers=headers,
             )
             responses.append(response)
             assert response.status_code == HTTPStatus.CREATED
@@ -155,12 +171,13 @@ class TestStartFlowIntegration(BaseTestClass):
     )
     def test_start_flow_works_with_different_flows(self, flow_id):
         """Test that starting works with different flow configurations."""
+        headers = self.get_user_auth_headers()
         response = self.client.post(
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": flow_id,
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=headers,
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -169,5 +186,7 @@ class TestStartFlowIntegration(BaseTestClass):
         assert "status" in data
 
         # Verify the run
-        get_response = self.client.get(f"{self.API_PREFIX}/runs/{data['id']}")
+        get_response = self.client.get(
+            f"{self.API_PREFIX}/runs/{data['id']}", headers=headers
+        )
         assert get_response.status_code == HTTPStatus.OK

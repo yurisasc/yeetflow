@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import exists, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -14,6 +14,8 @@ from app.models import (
     RunCreate,
     RunStatus,
     SessionStatus,
+    User,
+    UserRole,
 )
 from app.models import Session as SessionModel
 from app.services.run.errors import (
@@ -49,7 +51,61 @@ class RunService:
 
         try:
             # Create initial run record
-            run = await self._create_run_record(request, run_id, session)
+            await self._create_run_record(request, run_id, session)
+
+            # Create Steel session
+            session_data = await self.steel_service.create_session()
+
+            if not session_data:
+                await self._handle_session_creation_failure(
+                    run_id, session, "Failed to create browser session"
+                )
+                self._fail_session_creation()
+
+            session_url = session_data.get("sessionViewerUrl")
+            browser_session_id = session_data.get("id")
+
+            if not session_url:
+                await self._handle_session_creation_failure(
+                    run_id, session, "Session created without viewer URL"
+                )
+                self._fail_missing_url()
+
+            # Create session record and finalize run
+            await self._create_session_and_finalize_run(
+                run_id, session_url, browser_session_id, session
+            )
+
+            # Emit final progress event
+            await self._emit_progress_safe(
+                run_id,
+                {
+                    "status": RunStatus.RUNNING.value,
+                    "session_url": session_url,
+                    "message": "Session initialized",
+                },
+            )
+
+        except Exception:
+            # Handle any other errors
+            logger.exception("Error creating run")
+            await session.rollback()
+            raise
+
+    async def create_run_with_user(
+        self, request: RunCreate, user: User, session: AsyncSession
+    ) -> Run:
+        """Create a new run with authenticated user."""
+        # Validate that the flow exists and user has access to it
+        await self._validate_flow_exists_and_access(request.flow_id, user, session)
+
+        run_id = uuid4()
+
+        try:
+            # Create initial run record with authenticated user's ID
+            run = await self._create_run_record_with_user(
+                request, run_id, user, session
+            )
 
             # Create Steel session
             session_data = await self.steel_service.create_session()
@@ -91,6 +147,12 @@ class RunService:
             raise
         else:
             return run
+
+    async def list_runs_for_user(
+        self, user_id: UUID, session: AsyncSession, skip: int = 0, limit: int = 100
+    ) -> list[Run]:
+        """List runs for a specific user with pagination."""
+        return await self.repository.list_runs_for_user(session, user_id, skip, limit)
 
     async def get_run(self, run_id: UUID, session: AsyncSession) -> Run:
         """Get a run by its ID."""
@@ -205,11 +267,46 @@ class RunService:
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Failed to emit progress for run %s: %s", run_id, str(e))
 
-    async def _validate_flow_exists(self, flow_id: UUID, session: AsyncSession) -> None:
-        """Validate that the specified flow exists"""
-        found = await session.scalar(select(exists().where(Flow.id == flow_id)))
-        if not found:
+    async def _validate_flow_exists_and_access(
+        self, flow_id: UUID, user: User, session: AsyncSession
+    ) -> None:
+        """Validate that the flow exists and user has access to it."""
+
+        # Check if flow exists
+        flow_result = await session.execute(select(Flow).where(Flow.id == flow_id))
+        flow = flow_result.scalar_one_or_none()
+
+        if not flow:
             raise InvalidFlowError(str(flow_id))
+
+        # Check if user has access to the flow
+        # For now, users can access flows they created or if they're admin
+        # This can be extended with more complex permission systems later
+        if flow.created_by != user.id and user.role != UserRole.ADMIN:
+            message = f"User does not have access to flow {flow_id}"
+            raise InvalidFlowError(message)
+
+    async def _create_run_record_with_user(
+        self, request: RunCreate, run_id: UUID, user: User, session: AsyncSession
+    ) -> Run:
+        """Create the initial run record with authenticated user."""
+        run = Run(
+            id=run_id,
+            flow_id=request.flow_id,
+            user_id=user.id,  # Use authenticated user's ID
+            status=RunStatus.PENDING,
+        )
+        run = await self.repository.create(session, run)
+
+        # Emit pending status event
+        await self._emit_progress_safe(
+            run_id,
+            {
+                "status": RunStatus.PENDING.value,
+                "message": "Run created, initializing session",
+            },
+        )
+        return run
 
     async def update_run(
         self, run_id: UUID, request: dict, session: AsyncSession
