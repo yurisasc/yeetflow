@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.models import Event, EventType, Flow, Run, RunStatus, User
+from app.models import Event, EventType, Flow, Run, RunStatus, SessionStatus, User
 from app.models import Session as DBSession
 
 # Test constants
@@ -54,8 +54,8 @@ class TestRelationshipsAndCascades:
         await session.commit()
 
         # Create sessions and events
-        session1 = DBSession(run_id=run.id, status="active")
-        session2 = DBSession(run_id=run.id, status="completed")
+        session1 = DBSession(run_id=run.id, status=SessionStatus.ACTIVE)
+        session2 = DBSession(run_id=run.id, status=SessionStatus.ENDED)
         event1 = Event(run_id=run.id, type=EventType.PROGRESS, message="Starting")
         event2 = Event(run_id=run.id, type=EventType.COMPLETED, message="Done")
 

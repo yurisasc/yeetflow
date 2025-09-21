@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -6,7 +7,7 @@ from fastapi import HTTPException
 
 from app.models import User, UserCreate, UserRead, UserRole
 from app.services.auth import AuthService
-from app.utils.auth import get_password_hash
+from app.utils.auth import TokenData, get_password_hash
 
 
 @pytest.mark.unit
@@ -34,6 +35,11 @@ class TestAuthService:
         mock_session.commit.return_value = None
         mock_session.refresh = AsyncMock()
 
+        # Mock the count query to return 0 (no existing users)
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 0
+        mock_session.execute.return_value = mock_result
+
         # Test first user creation (password hashing is tested separately)
         with patch("app.utils.auth.get_password_hash", return_value="hashed_password"):
             result = await auth_service.create_user(user_data, mock_session, None)
@@ -57,6 +63,11 @@ class TestAuthService:
             mock_session.commit.return_value = None
             mock_session.refresh = AsyncMock()
 
+            # Mock the count query to return 1 (existing users)
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = 1
+            mock_session.execute.return_value = mock_result
+
             result = await auth_service.create_user(
                 user_data, mock_session, UserRole.ADMIN
             )
@@ -73,6 +84,11 @@ class TestAuthService:
             password="password123",
             role=UserRole.ADMIN,
         )
+
+        # Mock the count query to return 1 (existing users)
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 1
+        mock_session.execute.return_value = mock_result
 
         # Non-admin creator tries to create admin user
         with pytest.raises(
@@ -95,6 +111,11 @@ class TestAuthService:
             mock_session.add.return_value = None
             mock_session.commit.return_value = None
             mock_session.refresh = AsyncMock()
+
+            # Mock the count query to return 1 (existing users)
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = 1
+            mock_session.execute.return_value = mock_result
 
             result = await auth_service.create_user(
                 user_data, mock_session, UserRole.ADMIN
@@ -195,14 +216,30 @@ class TestAuthService:
             assert hasattr(tokens, "token_type")
 
     async def test_refresh_user_tokens_success(self, auth_service, mock_session):
-        """Test successful token refresh."""
-        # This test verifies that the method exists and can be called
-        # In a real scenario, this would require complex JWT token setup
-        refresh_token = "valid.refresh.token"
-
-        # Just verify the method exists and handles invalid tokens
-        with pytest.raises((ValueError, HTTPException)):
-            await auth_service.refresh_user_tokens(refresh_token, mock_session)
+        """Test successful token refresh (happy path)."""
+        mock_user = User(
+            id=uuid4(),
+            email="ok@example.com",
+            name="Ok",
+            password_hash="h",
+            role=UserRole.USER,
+        )
+        with patch(
+            "app.services.auth.service.verify_refresh_token",
+            return_value=TokenData(user_id=mock_user.id),
+        ):
+            auth_service.get_user_by_id = AsyncMock(return_value=mock_user)
+            with (
+                patch(
+                    "app.services.auth.service.create_access_token", return_value="a.t"
+                ),
+                patch(
+                    "app.services.auth.service.create_refresh_token", return_value="r.t"
+                ),
+            ):
+                tokens = await auth_service.refresh_user_tokens("rt", mock_session)
+                assert tokens.access_token == "a.t"
+                assert tokens.refresh_token == "r.t"
 
     async def test_refresh_user_tokens_invalid_token(self, auth_service, mock_session):
         """Test token refresh with invalid refresh token."""
@@ -224,7 +261,7 @@ class TestAuthService:
 
     async def test_get_user_by_id_success(self, auth_service, mock_session):
         """Test successful user lookup by ID."""
-        user_id = str(uuid4())
+        user_id = uuid4()
         mock_user = User(
             id=user_id,
             email="test@example.com",
@@ -243,7 +280,7 @@ class TestAuthService:
 
     async def test_get_user_by_id_not_found(self, auth_service, mock_session):
         """Test user lookup by ID when user doesn't exist."""
-        user_id = str(uuid4())
+        user_id = uuid4()
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -257,14 +294,14 @@ class TestAuthService:
         """Test retrieving all users."""
         mock_users = [
             User(
-                id=str(uuid4()),
+                id=uuid4(),
                 email="user1@example.com",
                 name="User 1",
                 password_hash="hash1",
                 role=UserRole.USER,
             ),
             User(
-                id=str(uuid4()),
+                id=uuid4(),
                 email="user2@example.com",
                 name="User 2",
                 password_hash="hash2",
@@ -273,7 +310,32 @@ class TestAuthService:
         ]
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_users
+        # Create simple mock row objects
+
+        class MockRow:
+            def __init__(self, **kwargs):
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+
+        mock_rows = [
+            MockRow(
+                id=mock_users[0].id,
+                email="user1@example.com",
+                name="User 1",
+                role=UserRole.USER,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            ),
+            MockRow(
+                id=mock_users[1].id,
+                email="user2@example.com",
+                name="User 2",
+                role=UserRole.ADMIN,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            ),
+        ]
+        mock_result.all.return_value = mock_rows
         mock_session.execute.return_value = mock_result
 
         result = await auth_service.get_all_users(mock_session)
@@ -286,7 +348,7 @@ class TestAuthService:
 
     async def test_update_user_role_success(self, auth_service, mock_session):
         """Test successful user role update."""
-        user_id = str(uuid4())
+        user_id = uuid4()
         new_role = UserRole.ADMIN
         updater_role = UserRole.ADMIN
 
@@ -317,7 +379,7 @@ class TestAuthService:
         self, auth_service, mock_session
     ):
         """Test role update by non-admin user."""
-        user_id = str(uuid4())
+        user_id = uuid4()
         new_role = UserRole.ADMIN
         updater_role = UserRole.USER  # Not admin
 
@@ -330,7 +392,7 @@ class TestAuthService:
 
     async def test_update_user_role_user_not_found(self, auth_service, mock_session):
         """Test role update for non-existent user."""
-        user_id = str(uuid4())
+        user_id = uuid4()
         new_role = UserRole.ADMIN
         updater_role = UserRole.ADMIN
 

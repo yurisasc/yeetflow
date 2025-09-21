@@ -86,6 +86,25 @@ class TestRunsListSessionsEventsIntegration(BaseTestClass):
         data = response.json()
         assert len(data) <= pagination_limit
 
+        # Verify results are sorted by created_at desc, id desc
+        if len(data) > 1:
+            for i in range(len(data) - 1):
+                current = data[i]
+                next_item = data[i + 1]
+                # Compare created_at (descending)
+                current_created = current["created_at"]
+                next_created = next_item["created_at"]
+                if current_created != next_created:
+                    assert current_created >= next_created, (
+                        f"Results not sorted by created_at desc: "
+                        f"{current_created} < {next_created}"
+                    )
+                else:
+                    # If created_at is equal, compare id (descending)
+                    assert str(current["id"]) >= str(next_item["id"]), (
+                        "Results not sorted by id desc when created_at equal"
+                    )
+
     def test_get_run_sessions_integration(self):
         """Integration test for GET /runs/{runId}/sessions endpoint."""
         # Create a run with authentication

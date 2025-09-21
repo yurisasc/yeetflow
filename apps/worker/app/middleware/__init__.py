@@ -1,3 +1,4 @@
-from .auth import AuthMiddleware, CORSMiddleware
+from .auth import AuthMiddleware
+from .auth import CORSMiddleware as WorkerCORSMiddleware
 
-__all__ = ["AuthMiddleware", "CORSMiddleware"]
+__all__ = ["AuthMiddleware", "WorkerCORSMiddleware"]

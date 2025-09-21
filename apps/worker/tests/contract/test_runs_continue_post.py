@@ -158,3 +158,30 @@ class TestRunsContinuePostContract(BaseTestClass):
         assert get_response_after.status_code == HTTPStatus.OK
         new_status = get_response_after.json()["status"]
         assert new_status == RunStatus.RUNNING
+
+    def test_post_runs_continue_admin_can_access_any_run(self):
+        """Test that POST /runs/{runId}/continue allows admin to continue any run."""
+        # Create a run with the test user
+        user_headers = self.get_user_auth_headers()
+        create_response = self.client.post(
+            f"{self.API_PREFIX}/runs",
+            json={
+                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
+            headers=user_headers,
+        )
+        assert create_response.status_code == HTTPStatus.CREATED
+        run_id = create_response.json()["id"]
+
+        # Put run into awaiting_input state
+        self.set_run_status(run_id, RunStatus.AWAITING_INPUT)
+
+        # Admin should be able to continue the run
+        admin_headers = self.get_admin_auth_headers()
+        response = self.client.post(
+            f"{self.API_PREFIX}/runs/{run_id}/continue",
+            json={"input_payload": {"action": "continue"}},
+            headers=admin_headers,
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json()["status"] == "running"

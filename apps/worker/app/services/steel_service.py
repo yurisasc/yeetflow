@@ -46,7 +46,7 @@ class SteelService:
                 },
             )
 
-            if not should_retry_http_response(response):
+            if should_retry_http_response(response):
                 response.raise_for_status()
 
             if response.status_code != HTTPStatus.CREATED:

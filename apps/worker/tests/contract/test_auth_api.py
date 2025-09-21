@@ -3,7 +3,6 @@ import asyncio
 from fastapi import status
 from sqlmodel import delete
 
-from app.db import AsyncSessionLocal
 from app.models import User
 from tests.conftest import BaseTestClass
 
@@ -13,28 +12,20 @@ class TestAuthAPI(BaseTestClass):
 
     def test_register_first_user_becomes_admin(self):
         """Test that the first user can register without auth and becomes admin."""
-        # Note: This test assumes an empty database
-        # In practice, this would only work for the very first deployment
-
-        # For now, test the admin registration flow instead
+        # Ensure empty DB to exercise bootstrap behavior
+        self._clear_all_users()
         user_data = {
-            "email": "newuser@example.com",
-            "name": "New User",
+            "email": "firstadmin@example.com",
+            "name": "First Admin",
             "password": "securepassword123",
-            "role": "user",
         }
-
-        # Register with admin auth (this should work with existing admin)
-        headers = self.get_admin_auth_headers()
-        response = self.client.post(
-            "/api/v1/auth/register", json=user_data, headers=headers
-        )
+        response = self.client.post("/api/v1/auth/register", json=user_data)
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["email"] == user_data["email"]
         assert data["name"] == user_data["name"]
-        assert data["role"] == user_data["role"]
+        assert data["role"] == "admin"
         assert "id" in data
 
     def test_register_user_requires_admin_after_first(self):
@@ -92,34 +83,24 @@ class TestAuthAPI(BaseTestClass):
 
     def test_first_user_registration_empty_database(self):
         """Test first user registration in an empty database scenario."""
-        # This test simulates the scenario where no users exist yet
-        # It would typically run against a fresh database
-
-        # For demonstration, we'll test that the registration endpoint
-        # is accessible (not blocked by middleware)
+        # Ensure the database has no users
+        self._clear_all_users()
         user_data = {
             "email": "firstadmin@example.com",
             "name": "First Admin",
             "password": "securepassword123",
         }
 
-        # This should at least not be blocked by middleware
-        # (The actual registration logic would work if database was empty)
         response = self.client.post("/api/v1/auth/register", json=user_data)
-
-        # With existing users, this will require auth (401)
-        # But the middleware allows the request through (not 403)
-        assert response.status_code in [
-            status.HTTP_401_UNAUTHORIZED,
-            status.HTTP_201_CREATED,
-        ]
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["role"] == "admin"
 
     def _clear_all_users(self):
         """Helper method to clear all users for first user testing."""
 
-        # Create a new session for clearing users
+        # Use the test's session to clear users
         async def clear_users():
-            async with AsyncSessionLocal() as session:
+            async with self.TestAsyncSessionLocal() as session:
                 await session.execute(delete(User))
                 await session.commit()
 

@@ -18,6 +18,7 @@ from app.models import (
     UserRole,
 )
 from app.services.run.errors import (
+    FlowAccessDeniedError,
     InvalidFlowError,
     MissingSessionURLError,
     RunNotFoundError,
@@ -34,6 +35,32 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _ensure_run_access(
+    run_id: UUID, user: User, session: AsyncSession, service: RunService
+):
+    """Ensure user has access to the specified run.
+
+    Args:
+        run_id: The run ID to check access for
+        user: The current user
+        session: Database session
+        service: Run service instance
+
+    Returns:
+        The run object if access is granted
+
+    Raises:
+        HTTPException: If user doesn't have access to the run
+    """
+    run = await service.get_run(run_id, session)
+    if run.user_id != user.id and user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Not authorized to access this run",
+        )
+    return run
+
+
 @router.post("/runs", response_model=RunRead, status_code=HTTPStatus.CREATED)
 async def create_run(
     request: RunCreate,
@@ -48,6 +75,11 @@ async def create_run(
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=str(e),
+        ) from e
+    except FlowAccessDeniedError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Access denied to flow",
         ) from e
     except IntegrityError as e:
         # Handle foreign key constraint violations (e.g., invalid flow_id)
@@ -82,19 +114,11 @@ async def get_run(
     """Get details of a specific run by ID."""
     service = RunService()
     try:
-        run = await service.get_run(run_id, session)
-
-        # Check if user owns this run or is admin
-        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Not authorized to access this run",
-            )
+        await _ensure_run_access(run_id, current_user, session, service)
+        return await service.get_run(run_id, session)
 
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
-    else:
-        return run
 
 
 @router.get("/runs", response_model=list[RunRead])
@@ -124,15 +148,9 @@ async def get_run_sessions(
     """Get all sessions for a specific run."""
     service = RunService()
     try:
-        # First check if user has access to this run
-        run = await service.get_run(run_id, session)
-        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Not authorized to access this run",
-            )
-
+        await _ensure_run_access(run_id, current_user, session, service)
         return await service.get_run_sessions(run_id, session)
+
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
 
@@ -146,15 +164,9 @@ async def get_run_events(
     """Get all events for a specific run."""
     service = RunService()
     try:
-        # First check if user has access to this run
-        run = await service.get_run(run_id, session)
-        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Not authorized to access this run",
-            )
-
+        await _ensure_run_access(run_id, current_user, session, service)
         return await service.get_run_events(run_id, session)
+
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
 
@@ -169,17 +181,11 @@ async def update_run(
     """Update an existing run."""
     service = RunService()
     try:
-        # First check if user has access to this run
-        run = await service.get_run(run_id, session)
-        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Not authorized to access this run",
-            )
-
+        await _ensure_run_access(run_id, current_user, session, service)
         return await service.update_run(
             run_id, request.model_dump(exclude_unset=True), session
         )
+
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
 
@@ -194,15 +200,9 @@ async def continue_run(
     """Continue a run that is awaiting input."""
     service = RunService()
     try:
-        # First check if user has access to this run
-        run = await service.get_run(run_id, session)
-        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Not authorized to access this run",
-            )
-
+        await _ensure_run_access(run_id, current_user, session, service)
         return await service.continue_run(run_id, request, session)
+
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
     except ValueError as e:

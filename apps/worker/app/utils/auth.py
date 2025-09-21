@@ -28,12 +28,22 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
+
+def _raise_unauthorized(detail: str) -> None:
+    """Helper function to raise HTTP 401 Unauthorized exceptions."""
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 # OAuth2 scheme for token extraction with enhanced documentation
 oauth2_scheme = HTTPBearer(
     scheme_name="JWT",
     description="""JWT Bearer token for authentication.
     Include your JWT token in the Authorization header as: Bearer {token}""",
-    auto_error=True,
+    auto_error=False,
 )
 
 # Optional OAuth2 scheme for endpoints that might not require authentication
@@ -46,6 +56,7 @@ oauth2_scheme_optional = HTTPBearer(
 
 oauth2_scheme_optional_dep = Depends(oauth2_scheme_optional)
 get_db_session_dep = Depends(get_db_session)
+oauth2_scheme_dep = Depends(oauth2_scheme)
 
 
 class Token(BaseModel):
@@ -111,19 +122,37 @@ def create_refresh_token(data: dict[str, Any]) -> str:
 
 
 def verify_token(token: str) -> TokenData:
-    """Verify and decode a JWT token."""
+    """Verify and decode a JWT access token."""
+
+    def _raise_unauthorized(detail: str) -> None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: UUID | None = payload.get("sub")
+
+        # Check if this is actually an access token
+        token_type = payload.get("type")
+        if token_type != "access":  # noqa: S105
+            logger.warning("Invalid token type for access: %s", token_type)
+            _raise_unauthorized("Invalid token type")
+
+        # Get and validate user_id as UUID
+        sub = payload.get("sub")
+        if sub is None:
+            _raise_unauthorized("Token missing user ID")
+
+        try:
+            user_id = UUID(sub)
+        except (ValueError, TypeError):
+            logger.warning("Invalid UUID format in token sub claim: %s", sub)
+            _raise_unauthorized("Invalid token format")
+
         email: str | None = payload.get("email")
         role: str | None = payload.get("role")
-
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing user ID",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
 
         # Convert role string back to enum
         user_role = None
@@ -136,6 +165,9 @@ def verify_token(token: str) -> TokenData:
 
         return TokenData(user_id=user_id, email=email, role=user_role)
 
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except PyJWTError as e:
         logger.exception("JWT verification failed")
         raise HTTPException(
@@ -154,22 +186,21 @@ def verify_refresh_token(token: str) -> TokenData:
         token_type = payload.get("type")
         if token_type != "refresh":  # noqa: S105 OAuth2 standard token type
             logger.warning("Invalid token type for refresh: %s", token_type)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            _raise_unauthorized("Invalid token type")
 
-        user_id: UUID | None = payload.get("sub")
+        # Get and validate user_id as UUID
+        sub = payload.get("sub")
+        if sub is None:
+            _raise_unauthorized("Token missing user ID")
+
+        try:
+            user_id = UUID(sub)
+        except (ValueError, TypeError):
+            logger.warning("Invalid UUID format in refresh token sub claim: %s", sub)
+            _raise_unauthorized("Invalid token format")
+
         email: str | None = payload.get("email")
         role: str | None = payload.get("role")
-
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing user ID",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
 
         # Convert role string back to enum
         user_role = None
@@ -177,11 +208,14 @@ def verify_refresh_token(token: str) -> TokenData:
             try:
                 user_role = UserRole(role)
             except ValueError:
-                logger.warning("Invalid role in refresh token: {role}")
+                logger.warning("Invalid role in refresh token: %s", role)
                 user_role = UserRole.USER
 
         return TokenData(user_id=user_id, email=email, role=user_role)
 
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except PyJWTError as e:
         logger.exception("Refresh token verification failed")
         raise HTTPException(
@@ -192,9 +226,18 @@ def verify_refresh_token(token: str) -> TokenData:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), session: AsyncSession = get_db_session_dep
+    token: HTTPAuthorizationCredentials | None = oauth2_scheme_dep,
+    session: AsyncSession = get_db_session_dep,
 ) -> User:
     """Get the current authenticated user from JWT token."""
+    # Check if Authorization header is present
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

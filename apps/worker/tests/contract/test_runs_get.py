@@ -61,10 +61,10 @@ class TestRunsGetContract(BaseTestClass):
         run_id = "550e8400-e29b-41d4-a716-446655440000"
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}")
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
 
-    def test_get_runs_returns_run_details(self):
-        """Test that GET /runs/{runId} returns run details."""
-        # Create a run with authentication
+    def _create_run(self):
+        """Helper method to create a run and return its ID."""
         headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -74,8 +74,12 @@ class TestRunsGetContract(BaseTestClass):
             headers=headers,
         )
         assert create_response.status_code == HTTPStatus.CREATED
-        run_data = create_response.json()
-        run_id = run_data["id"]
+        return create_response.json()["id"]
+
+    def test_get_runs_returns_run_details(self):
+        """Test that GET /runs/{runId} returns run details."""
+        run_id = self._create_run()
+        headers = self.get_user_auth_headers()
 
         # Get the run details
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}", headers=headers)
@@ -97,7 +101,7 @@ class TestRunsGetContract(BaseTestClass):
         # Check data types and values
         assert data["id"] == run_id
         assert data["flow_id"] == "550e8400-e29b-41d4-a716-446655440000"
-        assert data["user_id"] == "550e8400-e29b-41d4-a716-446655440000"
+        assert data["user_id"] == str(self.test_user.id)
         assert data["status"] in [
             "pending",
             "running",
@@ -108,17 +112,8 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_runs_status_transitions_correctly(self):
         """Test that run status transitions work correctly."""
-        # Create a run with authentication
+        run_id = self._create_run()
         headers = self.get_user_auth_headers()
-        create_response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={
-                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-            },
-            headers=headers,
-        )
-        assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["id"]
 
         # Initial status should be running or pending
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}", headers=headers)
@@ -128,17 +123,8 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_runs_status_transition_to_completed(self):
         """Test that run status transitions to completed when run finishes."""
-        # Create a run with authentication
+        run_id = self._create_run()
         headers = self.get_user_auth_headers()
-        create_response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={
-                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-            },
-            headers=headers,
-        )
-        assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}", headers=headers)
@@ -157,17 +143,8 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_runs_status_transition_to_failed(self):
         """Test that run status transitions to failed when run fails."""
-        # Create a run with authentication
+        run_id = self._create_run()
         headers = self.get_user_auth_headers()
-        create_response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={
-                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-            },
-            headers=headers,
-        )
-        assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}", headers=headers)
@@ -186,17 +163,8 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_runs_status_transition_to_awaiting_input(self):
         """Test run status transitions to awaiting_input when human input needed."""
-        # Create a run with authentication
+        run_id = self._create_run()
         headers = self.get_user_auth_headers()
-        create_response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={
-                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-            },
-            headers=headers,
-        )
-        assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["id"]
 
         # Get initial status
         response = self.client.get(f"{self.API_PREFIX}/runs/{run_id}", headers=headers)
@@ -255,6 +223,7 @@ class TestRunsGetContract(BaseTestClass):
             assert "id" in run
             assert "flow_id" in run
             assert "user_id" in run
+            assert run["user_id"] == str(self.test_user.id)
             assert "status" in run
             assert "created_at" in run
             assert "updated_at" in run
@@ -294,17 +263,8 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_run_sessions_returns_200(self):
         """Test that GET /runs/{runId}/sessions returns HTTPStatus.OK."""
-        # Create a run with authentication
+        run_id = self._create_run()
         headers = self.get_user_auth_headers()
-        create_response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={
-                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-            },
-            headers=headers,
-        )
-        assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["id"]
 
         # Get run sessions
         response = self.client.get(
@@ -334,17 +294,8 @@ class TestRunsGetContract(BaseTestClass):
 
     def test_get_run_events_returns_200(self):
         """Test that GET /runs/{runId}/events returns HTTPStatus.OK."""
-        # Create a run with authentication
+        run_id = self._create_run()
         headers = self.get_user_auth_headers()
-        create_response = self.client.post(
-            f"{self.API_PREFIX}/runs",
-            json={
-                "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-            },
-            headers=headers,
-        )
-        assert create_response.status_code == HTTPStatus.CREATED
-        run_id = create_response.json()["id"]
 
         # Get run events
         response = self.client.get(

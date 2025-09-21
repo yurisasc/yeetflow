@@ -3,10 +3,11 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
-import sqlalchemy as sa
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, model_validator
 from pydantic import Field as PydField
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Index
 from sqlalchemy.dialects.sqlite import JSON
 from sqlmodel import Column, Field, ForeignKey, Relationship, SQLModel
 
@@ -19,7 +20,12 @@ class UserRole(str, Enum):
 class UserBase(SQLModel):
     email: str = Field(index=True, unique=True)
     name: str | None = None
-    role: UserRole = Field(default=UserRole.USER)
+    role: UserRole = Field(
+        default=UserRole.USER,
+        sa_column=Column(
+            SQLEnum(UserRole), server_default=UserRole.USER.value, nullable=False
+        ),
+    )
 
 
 class FlowBase(SQLModel):
@@ -65,7 +71,11 @@ class SessionBase(SQLModel):
     browser_provider_session_id: str | None = None
     status: SessionStatus = Field(
         default=SessionStatus.STARTING,
-        sa_column=Column(sa.VARCHAR(), server_default=SessionStatus.STARTING.value),
+        sa_column=Column(
+            SQLEnum(SessionStatus),
+            server_default=SessionStatus.STARTING.value,
+            nullable=False,
+        ),
     )
     session_url: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -73,7 +83,7 @@ class SessionBase(SQLModel):
 
 
 class EventBase(SQLModel):
-    type: EventType = Field(sa_column=Column(sa.VARCHAR(), nullable=False))
+    type: EventType = Field(sa_column=Column(SQLEnum(EventType), nullable=False))
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
     at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -86,8 +96,8 @@ class User(UserBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    flows: list["Flow"] = Relationship(back_populates="user")
-    runs: list["Run"] = Relationship(back_populates="user")
+    flows: list["Flow"] = Relationship(back_populates="user", cascade_delete=True)
+    runs: list["Run"] = Relationship(back_populates="user", cascade_delete=True)
 
 
 class Flow(FlowBase, table=True):
@@ -101,7 +111,7 @@ class Flow(FlowBase, table=True):
         )
     )
     user: User | None = Relationship(back_populates="flows")
-    runs: list["Run"] = Relationship(back_populates="flow")
+    runs: list["Run"] = Relationship(back_populates="flow", cascade_delete=True)
 
 
 class Run(RunBase, table=True):
@@ -126,6 +136,10 @@ class Run(RunBase, table=True):
         back_populates="run", passive_deletes="all"
     )
     events: list["Event"] = Relationship(back_populates="run", passive_deletes="all")
+
+    __table_args__ = (
+        Index("ix_run_user_created_at_id", "user_id", "created_at", "id"),
+    )
 
 
 class Session(SessionBase, table=True):
@@ -160,7 +174,7 @@ class UserCreate(PydanticBaseModel):
 
 
 class UserRead(PydanticBaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
     id: UUID
     email: str
     name: str | None = None

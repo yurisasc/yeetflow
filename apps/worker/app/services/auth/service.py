@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -30,12 +31,27 @@ class AuthService:
         creator_role: UserRole | None = None,
     ) -> User:
         """Create a new user with role-based permissions."""
-        # Handle first user scenario (no creator)
-        if creator_role is None:
-            # This is the first user, they automatically become admin
+        # Check if this is truly the first user within the transaction
+        result = await session.execute(select(func.count(User.id)))
+        user_count = result.scalar()
+
+        # Handle first user scenario
+        if user_count == 0:
+            # This is truly the first user, they automatically become admin
+            # creator_role should be None for first user (validated by caller)
+            if creator_role is not None:
+                error_msg = "First user registration must not have a creator"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
             role = UserRole.ADMIN
             logger.info("Creating first user as admin")
         else:
+            # Subsequent users require a creator with proper permissions
+            if creator_role is None:
+                error_msg = "Creator role required for non-first user registration"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
             # Only admins can create users with ADMIN role
             if (
                 user_data.role
@@ -123,19 +139,29 @@ class AuthService:
 
     async def get_all_users(self, session: AsyncSession) -> list[UserRead]:
         """Get all users (admin only)."""
-        result = await session.execute(select(User))
-        users = result.scalars().all()
+        # Select only the columns needed for UserRead to avoid loading password_hash
+        result = await session.execute(
+            select(
+                User.id,
+                User.email,
+                User.name,
+                User.role,
+                User.created_at,
+                User.updated_at,
+            )
+        )
+        rows = result.all()
 
         return [
             UserRead(
-                id=user.id,
-                email=user.email,
-                name=user.name,
-                role=user.role,
-                created_at=user.created_at,
-                updated_at=user.updated_at,
+                id=row.id,
+                email=row.email,
+                name=row.name,
+                role=row.role,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
             )
-            for user in users
+            for row in rows
         ]
 
     async def update_user_role(

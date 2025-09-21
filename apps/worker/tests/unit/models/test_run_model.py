@@ -106,3 +106,71 @@ class TestRunModel:
         with pytest.raises(IntegrityError):
             await session.commit()
         await session.rollback()
+
+    async def test_run_cascade_delete_from_user(self, session):
+        """Test that deleting a User cascades to delete associated Runs."""
+        # Create user
+        user = User(email="cascadetest@example.com", password_hash="cascade_password")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Create flow
+        flow = Flow(key="cascade-flow", name="Cascade Flow", created_by=user.id)
+        session.add(flow)
+        await session.commit()
+        await session.refresh(flow)
+
+        # Create run
+        run = Run(flow_id=flow.id, user_id=user.id)
+        session.add(run)
+        await session.commit()
+        await session.refresh(run)
+
+        # Verify run exists
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is not None
+
+        # Delete user - this should cascade to delete the run
+        await session.delete(user)
+        await session.commit()
+
+        # Verify run is deleted
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is None
+
+    async def test_run_cascade_delete_from_flow(self, session):
+        """Test that deleting a Flow cascades to delete associated Runs."""
+        # Create user
+        user = User(email="fc@example.com", password_hash="flowcascade_password")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Create flow
+        flow = Flow(key="flow-cascade", name="Flow Cascade Flow", created_by=user.id)
+        session.add(flow)
+        await session.commit()
+        await session.refresh(flow)
+
+        # Create run
+        run = Run(flow_id=flow.id, user_id=user.id)
+        session.add(run)
+        await session.commit()
+        await session.refresh(run)
+
+        # Verify run exists
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is not None
+
+        # Delete flow - this should cascade to delete the run
+        await session.delete(flow)
+        await session.commit()
+
+        # Verify run is deleted
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is None

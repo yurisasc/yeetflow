@@ -73,6 +73,7 @@ class TestAuthMiddleware:
         assert isinstance(result, JSONResponse)
         assert result.status_code == HTTPStatus.UNAUTHORIZED
         assert "Authorization header missing" in result.body.decode()
+        assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_invalid_auth_header_format(
         self, middleware, mock_request, mock_call_next
@@ -87,6 +88,7 @@ class TestAuthMiddleware:
         assert isinstance(result, JSONResponse)
         assert result.status_code == HTTPStatus.UNAUTHORIZED
         assert "Invalid authorization header format" in result.body.decode()
+        assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_invalid_scheme_in_auth_header(
         self, middleware, mock_request, mock_call_next
@@ -101,6 +103,7 @@ class TestAuthMiddleware:
         assert isinstance(result, JSONResponse)
         assert result.status_code == HTTPStatus.UNAUTHORIZED
         assert "Invalid authorization header format" in result.body.decode()
+        assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_valid_token_authenticates_user(
         self, middleware, mock_request, mock_call_next
@@ -142,6 +145,7 @@ class TestAuthMiddleware:
             assert isinstance(result, JSONResponse)
             assert result.status_code == HTTPStatus.UNAUTHORIZED
             assert "Invalid or expired token" in result.body.decode()
+            assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_expired_token_returns_401(
         self, middleware, mock_request, mock_call_next
@@ -160,6 +164,7 @@ class TestAuthMiddleware:
             mock_call_next.assert_not_called()
             assert isinstance(result, JSONResponse)
             assert result.status_code == HTTPStatus.UNAUTHORIZED
+            assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_middleware_calls_next_with_valid_request(
         self, middleware, mock_request, mock_call_next

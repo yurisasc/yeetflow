@@ -1,7 +1,7 @@
 from http import HTTPStatus
-from pathlib import Path
+from unittest.mock import patch
 
-from tests.conftest import BaseTestClass
+from tests.conftest import BaseTestClass, MockStorageBackend
 
 
 class TestRunsArtifactGetContract(BaseTestClass):
@@ -9,9 +9,10 @@ class TestRunsArtifactGetContract(BaseTestClass):
 
     LARGE_FILE_SIZE = 10000
 
-    def test_get_runs_artifact_returns_200_with_file(self):
-        """Test GET /runs/{runId}/artifact returns OK with file for completed runs."""
-        # First create a run with authentication
+    @patch("app.services.artifact.service.get_storage")
+    def test_get_runs_artifact_returns_200_with_file(self, mock_get_storage, tmp_path):
+        """Test that GET /runs/{runId}/artifact returns 200 with file content."""
+        # Create a run with artifact
         headers = self.get_user_auth_headers()
         create_response = self.client.post(
             f"{self.API_PREFIX}/runs",
@@ -23,13 +24,14 @@ class TestRunsArtifactGetContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
 
-        # Create a test artifact file
-        artifacts_dir = Path(__file__).parent.parent.parent / "artifacts"
-        artifacts_dir.mkdir(exist_ok=True)
-
-        test_file = artifacts_dir / f"test_artifact_{run_id}.txt"
+        # Create a test artifact file using tmp_path
+        test_file = tmp_path / f"test_artifact_{run_id}.txt"
         test_content = b"This is a test artifact file"
         test_file.write_bytes(test_content)
+
+        # Mock the storage backend to serve files from tmp_path
+        mock_storage = MockStorageBackend({str(test_file): test_file})
+        mock_get_storage.return_value = mock_storage
 
         # Update run with artifact path
         update_response = self.client.patch(
@@ -85,7 +87,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "no artifact available" in response.json()["detail"].lower()
 
-    def test_get_runs_artifact_content_disposition(self):
+    @patch("app.services.artifact.service.get_storage")
+    def test_get_runs_artifact_content_disposition(self, mock_get_storage, tmp_path):
         """Test GET /runs/{runId}/artifact proper content-disposition header."""
         # Create a run with artifact
         headers = self.get_user_auth_headers()
@@ -99,13 +102,14 @@ class TestRunsArtifactGetContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
 
-        # Create test artifact
-        artifacts_dir = Path(__file__).parent.parent.parent / "artifacts"
-        artifacts_dir.mkdir(exist_ok=True)
-
-        test_file = artifacts_dir / "test_document.pdf"
+        # Create test artifact using tmp_path
+        test_file = tmp_path / "test_document.pdf"
         test_content = b"Test PDF content"
         test_file.write_bytes(test_content)
+
+        # Mock the storage backend to serve files from tmp_path
+        mock_storage = MockStorageBackend({str(test_file): test_file})
+        mock_get_storage.return_value = mock_storage
 
         # Update run with artifact path
         update_response = self.client.patch(
@@ -123,7 +127,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
         assert "attachment" in response.headers.get("content-disposition", "")
         assert "test_document.pdf" in response.headers.get("content-disposition", "")
 
-    def test_get_runs_artifact_large_file_handling(self):
+    @patch("app.services.artifact.service.get_storage")
+    def test_get_runs_artifact_large_file_handling(self, mock_get_storage, tmp_path):
         """Test that GET /runs/{runId}/artifact handles large files correctly."""
         # Create a run with large artifact
         headers = self.get_user_auth_headers()
@@ -137,13 +142,14 @@ class TestRunsArtifactGetContract(BaseTestClass):
         assert create_response.status_code == HTTPStatus.CREATED
         run_id = create_response.json()["id"]
 
-        # Create large test artifact (simulate large file)
-        artifacts_dir = Path(__file__).parent.parent.parent / "artifacts"
-        artifacts_dir.mkdir(exist_ok=True)
-
-        large_file = artifacts_dir / f"large_artifact_{run_id}.bin"
+        # Create large test artifact using tmp_path
+        large_file = tmp_path / f"large_artifact_{run_id}.bin"
         large_content = b"x" * self.LARGE_FILE_SIZE  # 10KB of data
         large_file.write_bytes(large_content)
+
+        # Mock the storage backend to serve files from tmp_path
+        mock_storage = MockStorageBackend({str(large_file): large_file})
+        mock_get_storage.return_value = mock_storage
 
         # Update run with artifact path
         update_response = self.client.patch(

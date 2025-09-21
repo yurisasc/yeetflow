@@ -48,6 +48,11 @@ class RunRepository:
         self, session: AsyncSession, user_id: UUID, skip: int = 0, limit: int = 100
     ) -> list[Run]:
         """List runs for a specific user with pagination."""
+        # Normalize pagination params
+        skip = max(0, int(skip))
+        # Enforce a server-side cap to avoid unbounded fetches
+        max_limit = 200
+        limit = max(1, min(int(limit), max_limit))
         result = await session.execute(
             select(Run)
             .where(Run.user_id == user_id)

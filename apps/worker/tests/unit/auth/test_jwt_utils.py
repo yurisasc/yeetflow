@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from jwt import PyJWTError
 
 from app.models import UserRole
 from app.utils.auth import (
@@ -85,18 +86,24 @@ class TestJWTUtilities:
             token = create_access_token(token_data)
 
             with patch("jwt.decode") as mock_decode:
-                mock_decode.side_effect = Exception("Token expired")
-                with pytest.raises(Exception, match="Token expired"):
+                mock_decode.side_effect = PyJWTError("Token expired")
+                with pytest.raises(HTTPException) as exc_info:
                     verify_token(token)
+
+                assert exc_info.value.status_code == HTTPStatus.UNAUTHORIZED
+                assert "Invalid or expired token" in str(exc_info.value.detail)
 
     def test_verify_token_invalid_signature(self):
         """Test verification of token with invalid signature."""
         invalid_token = "invalid.jwt.token"
 
         with patch("jwt.decode") as mock_decode:
-            mock_decode.side_effect = Exception("Invalid signature")
-            with pytest.raises(Exception, match="Invalid signature"):
+            mock_decode.side_effect = PyJWTError("Invalid signature")
+            with pytest.raises(HTTPException) as exc_info:
                 verify_token(invalid_token)
+
+            assert exc_info.value.status_code == HTTPStatus.UNAUTHORIZED
+            assert "Invalid or expired token" in str(exc_info.value.detail)
 
     def test_verify_token_missing_user_id(self):
         """Test verification of token missing user ID."""
@@ -160,7 +167,8 @@ class TestPasswordUtilities:
         assert isinstance(hashed, str)
         assert len(hashed) > 0
         assert hashed != password  # Should be hashed
-        assert hashed.startswith("$2b$")  # bcrypt format
+        # Bcrypt hash should look like $2a$ / $2b$ / $2y$
+        assert hashed.startswith("$2"), f"Unexpected bcrypt prefix: {hashed[:4]}"
 
     def test_verify_password_correct(self):
         """Test password verification with correct password."""

@@ -38,6 +38,7 @@ async def register_user(
 
     try:
         # For first user registration, pass None as creator_role
+        # The service will validate this is truly the first user
         creator_role = (
             None if current_user.email == "system@yeetflow.local" else current_user.role
         )
@@ -160,18 +161,13 @@ async def get_all_users(
 
 @router.patch("/users/{user_id}/role", response_model=UserRead)
 async def update_user_role(
-    user_id: str,
+    user_id: UUID,
     new_role: UserRole,
     session: AsyncSession = get_db_session_dep,
     current_user: User = check_admin_role_dep,  # Only admins can update roles
 ):
     """Update a users role (admin only)."""
-    try:
-        user_uuid = UUID(user_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user ID format"
-        ) from None
+    user_uuid = user_id
 
     auth_service = AuthService()
 

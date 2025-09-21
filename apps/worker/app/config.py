@@ -18,6 +18,7 @@ DEFAULT_RETRY_MAX_DELAY = 30.0
 DEFAULT_API_TOKEN = ""
 DEFAULT_ARTIFACTS_DIR = "./artifacts"
 DEFAULT_SOCKETIO_CORS = "*"
+DEFAULT_CORS_ALLOW_ORIGINS = "*"
 
 
 class Settings(BaseSettings):
@@ -124,6 +125,12 @@ class Settings(BaseSettings):
         description="CORS allowed origins for Socket.IO (comma-separated)",
     )
 
+    # CORS configuration
+    cors_allow_origins: str = Field(
+        default=DEFAULT_CORS_ALLOW_ORIGINS,
+        description="CORS allowed origins for API (comma-separated)",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -178,3 +185,24 @@ def get_socketio_config() -> dict:
     raw = settings.socketio_cors.strip()
     origins = "*" if raw == "*" else [o.strip() for o in raw.split(",") if o.strip()]
     return {"cors_allowed_origins": origins, "cors_enabled": True}
+
+
+def get_cors_config() -> dict:
+    """Get CORS configuration for the API."""
+    raw = settings.cors_allow_origins.strip()
+    if raw == "*":
+        return {
+            "allow_origins": ["*"],
+            "allow_credentials": False,
+            "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+            "allow_headers": ["Authorization", "Content-Type"],
+            "max_age": 86400,
+        }
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    return {
+        "allow_origins": origins,
+        "allow_credentials": True,
+        "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        "allow_headers": ["Authorization", "Content-Type"],
+        "max_age": 86400,
+    }

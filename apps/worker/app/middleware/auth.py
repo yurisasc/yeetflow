@@ -6,6 +6,8 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.config import get_cors_config
+from app.constants import API_V1_PREFIX
 from app.utils.auth import verify_token
 
 logger = logging.getLogger(__name__)
@@ -27,9 +29,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/redoc",
             "/openapi.json",
             "/health",
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            "/api/v1/auth/refresh",
+            f"{API_V1_PREFIX}/auth/",
         ]
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -86,25 +86,58 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 class CORSMiddleware(BaseHTTPMiddleware):
-    """CORS middleware for cross-origin requests."""
+    """Secure CORS middleware with origin validation and credential support."""
 
     def __init__(self, app: Callable):
         super().__init__(app)
+        # Get CORS configuration
+        cors_config = get_cors_config()
+        self.allow_origins = cors_config["allow_origins"]
+        self.allow_credentials = cors_config["allow_credentials"]
+        self.allowed_methods = cors_config["allow_methods"]
+        self.allowed_headers = cors_config["allow_headers"]
+        self.max_age = cors_config["max_age"]
+
+        # Determine if we allow all origins
+        self.allow_all_origins = self.allow_origins == ["*"]
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Add CORS headers to responses."""
+        """Add secure CORS headers to responses with origin validation."""
+        origin = request.headers.get("origin")
+
+        # Validate origin if present
+        if origin and not self._is_origin_allowed(origin):
+            # If origin is not allowed, don't add CORS headers
+            return await call_next(request)
+
+        # Handle preflight requests
         if request.method == "OPTIONS":
-            # Handle preflight requests
             response = Response()
         else:
             response = await call_next(request)
 
-        # Add CORS headers
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = (
-            "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        # Add CORS headers only if origin is allowed or allow_all_origins is True
+        if self.allow_all_origins:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "false"
+        elif origin and self._is_origin_allowed(origin):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Vary"] = "Origin"
+
+        # Add common CORS headers
+        response.headers["Access-Control-Allow-Methods"] = ", ".join(
+            self.allowed_methods
         )
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
-        response.headers["Access-Control-Max-Age"] = "86400"  # 24 hours
+        response.headers["Access-Control-Allow-Headers"] = ", ".join(
+            self.allowed_headers
+        )
+        response.headers["Access-Control-Max-Age"] = str(self.max_age)
 
         return response
+
+    def _is_origin_allowed(self, origin: str) -> bool:
+        """Check if the origin is in the allowed list."""
+        if self.allow_all_origins:
+            return True
+        return origin in self.allow_origins

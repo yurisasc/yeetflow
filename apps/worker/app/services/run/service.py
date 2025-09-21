@@ -19,6 +19,7 @@ from app.models import (
 )
 from app.models import Session as SessionModel
 from app.services.run.errors import (
+    FlowAccessDeniedError,
     InvalidFlowError,
     MissingSessionURLError,
     RunNotFoundError,
@@ -283,8 +284,7 @@ class RunService:
         # For now, users can access flows they created or if they're admin
         # This can be extended with more complex permission systems later
         if flow.created_by != user.id and user.role != UserRole.ADMIN:
-            message = f"User does not have access to flow {flow_id}"
-            raise InvalidFlowError(message)
+            raise FlowAccessDeniedError(str(flow_id))
 
     async def _create_run_record_with_user(
         self, request: RunCreate, run_id: UUID, user: User, session: AsyncSession

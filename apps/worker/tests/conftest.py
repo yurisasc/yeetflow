@@ -24,14 +24,58 @@ from app.models import Flow, Run, RunStatus, User, UserRole
 from app.utils.auth import create_access_token, get_password_hash
 
 
+class MockStorageBackend:
+    """Mock storage backend for testing with tmp_path files."""
+
+    def __init__(self, test_files):
+        self.test_files = test_files
+
+    async def get_file_info(self, storage_uri: str) -> tuple[str, int]:
+        """Return file info for test files."""
+        file_path = self.test_files.get(storage_uri)
+        if file_path and file_path.exists():
+            return file_path.name, file_path.stat().st_size
+        error_msg = f"File not found: {storage_uri}"
+        raise FileNotFoundError(error_msg)
+
+    async def retrieve(self, storage_uri: str):
+        """Return file content for test files."""
+        file_path = self.test_files.get(storage_uri)
+        if file_path and file_path.exists():
+            yield file_path.read_bytes()
+        else:
+            error_msg = f"File not found: {storage_uri}"
+            raise FileNotFoundError(error_msg)
+
+
+def mock_steel_service():
+    """Mock the Steel service to avoid hitting API limits during tests."""
+    # Patch the settings.steel_api_key to None to force SteelService into dev mode
+    settings_patcher = patch("app.config.settings.steel_api_key", None)
+    settings_patcher.start()
+    return settings_patcher
+
+
 class BaseTestClass:
     """Base test class with common utilities for API testing."""
 
     API_PREFIX = API_V1_PREFIX
 
     def set_run_status(self, run_id: str, status: RunStatus):
-        """Helper method to set run status directly in the database."""
+        """Helper method to set run status directly in the database.
+
+        Note: This method uses asyncio.run() internally and should only be
+        called from synchronous test methods. For async test methods, use
+        async_set_run_status().
+        """
         asyncio.run(self._set_run_status_async(run_id, status))
+
+    async def async_set_run_status(self, run_id: str, status: RunStatus):
+        """Async helper method to set run status directly in the database.
+
+        Safe to call from async test methods.
+        """
+        await self._set_run_status_async(run_id, status)
 
     async def _set_run_status_async(self, run_id: str, status: RunStatus):
         """Async helper method to set run status directly in the database."""
@@ -213,12 +257,3 @@ class BaseTestClass:
             asyncio.run(self.test_engine.dispose())
         with contextlib.suppress(OSError, FileNotFoundError):
             Path(self.temp_db.name).unlink()
-
-
-def mock_steel_service():
-    """Mock the Steel service to avoid hitting API limits during tests."""
-    # Patch the settings.steel_api_key to None to force SteelService into dev mode
-    settings_patcher = patch("app.config.settings.steel_api_key", None)
-    settings_patcher.start()
-
-    return settings_patcher
