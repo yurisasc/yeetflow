@@ -27,6 +27,7 @@ from app.services.run.errors import (
 )
 from app.services.run.service import RunService
 from app.utils.auth import get_current_user
+from app.utils.run import ensure_run_access
 
 db_dependency = Depends(get_db_session)
 current_user_dependency = Depends(get_current_user)
@@ -34,32 +35,6 @@ current_user_dependency = Depends(get_current_user)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-async def _ensure_run_access(
-    run_id: UUID, user: User, session: AsyncSession, service: RunService
-):
-    """Ensure user has access to the specified run.
-
-    Args:
-        run_id: The run ID to check access for
-        user: The current user
-        session: Database session
-        service: Run service instance
-
-    Returns:
-        The run object if access is granted
-
-    Raises:
-        HTTPException: If user doesn't have access to the run
-    """
-    run = await service.get_run(run_id, session)
-    if run.user_id != user.id and user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail="Run not found",
-        )
-    return run
 
 
 @router.post("/runs", response_model=RunRead, status_code=HTTPStatus.CREATED)
@@ -119,7 +94,7 @@ async def get_run(
     """Get details of a specific run by ID."""
     service = RunService()
     try:
-        return await _ensure_run_access(run_id, current_user, session, service)
+        return await ensure_run_access(run_id, current_user, session, service)
 
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
@@ -154,7 +129,7 @@ async def get_run_sessions(
     """Get all sessions for a specific run."""
     service = RunService()
     try:
-        await _ensure_run_access(run_id, current_user, session, service)
+        await ensure_run_access(run_id, current_user, session, service)
         return await service.get_run_sessions(run_id, session)
 
     except RunNotFoundError as e:
@@ -170,7 +145,7 @@ async def get_run_events(
     """Get all events for a specific run."""
     service = RunService()
     try:
-        await _ensure_run_access(run_id, current_user, session, service)
+        await ensure_run_access(run_id, current_user, session, service)
         return await service.get_run_events(run_id, session)
 
     except RunNotFoundError as e:
@@ -187,7 +162,7 @@ async def update_run(
     """Update an existing run."""
     service = RunService()
     try:
-        await _ensure_run_access(run_id, current_user, session, service)
+        await ensure_run_access(run_id, current_user, session, service)
         return await service.update_run(
             run_id, request.model_dump(exclude_unset=True), session
         )
@@ -206,7 +181,7 @@ async def continue_run(
     """Continue a run that is awaiting input."""
     service = RunService()
     try:
-        await _ensure_run_access(run_id, current_user, session, service)
+        await ensure_run_access(run_id, current_user, session, service)
         return await service.continue_run(run_id, request, session)
 
     except RunNotFoundError as e:

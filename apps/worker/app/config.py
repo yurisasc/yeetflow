@@ -22,18 +22,23 @@ DEFAULT_API_TOKEN = ""
 DEFAULT_ARTIFACTS_DIR = "./artifacts"
 DEFAULT_SOCKETIO_CORS = "*"
 DEFAULT_CORS_ALLOW_ORIGINS = "*"
+MINUTES_PER_DAY = 24 * 60
 
 
 def normalize_origins(raw: str) -> str | list[str]:
     """Normalize CORS origins from comma-separated string.
 
     Returns "*" if input contains wildcard, otherwise returns sorted list
-    of cleaned origins.
+    of cleaned origins. Filters out empty strings and validates URL format.
     """
-    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
-    if "*" in origins:
+    cleaned: list[str] = []
+    for o in raw.split(","):
+        s = o.strip().rstrip("/")
+        if s:
+            cleaned.append(s)
+    if "*" in cleaned:
         return "*"
-    return sorted(set(origins))
+    return sorted(set(cleaned))
 
 
 class Settings(BaseSettings):
@@ -200,10 +205,13 @@ class Settings(BaseSettings):
         if not self.debug and isinstance(sio_norm, list) and len(sio_norm) == 0:
             msg = "SOCKETIO_CORS cannot be empty (or commas-only) in production"
             raise ValueError(msg)
-        if self.refresh_token_expire_days * 1440 <= self.access_token_expire_minutes:
+        refresh_minutes = self.refresh_token_expire_days * MINUTES_PER_DAY
+        if refresh_minutes <= self.access_token_expire_minutes:
             msg = (
-                "REFRESH_TOKEN_EXPIRE_DAYS must be greater than "
-                "ACCESS_TOKEN_EXPIRE_MINUTES/1440"
+                f"REFRESH_TOKEN_EXPIRE_DAYS must be strictly greater than "
+                f"ACCESS_TOKEN_EXPIRE_MINUTES/{MINUTES_PER_DAY} "
+                f"(got {self.refresh_token_expire_days}d = {refresh_minutes}m vs "
+                f"{self.access_token_expire_minutes}m)"
             )
             raise ValueError(msg)
         return self
@@ -279,7 +287,6 @@ def get_cors_config() -> dict:
             "max_age": 86400,
         }
 
-    origins = sorted(set(origins))
     return {
         "allow_origins": origins,
         "allow_credentials": True,
