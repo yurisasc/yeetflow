@@ -3,6 +3,8 @@ Centralized configuration management for the YeetFlow worker application.
 All environment variables are loaded and validated here.
 """
 
+from urllib.parse import urlsplit
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,22 +24,38 @@ DEFAULT_API_TOKEN = ""
 DEFAULT_ARTIFACTS_DIR = "./artifacts"
 DEFAULT_SOCKETIO_CORS = "*"
 DEFAULT_CORS_ALLOW_ORIGINS = "*"
+
+# CORS configuration constants
+ALLOWED_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
+ALLOWED_HEADERS = ["Authorization", "Content-Type", "Accept", "Accept-Language"]
+EXPOSE_HEADERS = ["WWW-Authenticate", "Authorization"]
 MINUTES_PER_DAY = 24 * 60
 
 
 def normalize_origins(raw: str) -> str | list[str]:
     """Normalize CORS origins from comma-separated string.
-
-    Returns "*" if input contains wildcard, otherwise returns sorted list
-    of cleaned origins. Filters out empty strings and validates URL format.
+    - Returns "*" if any wildcard is present.
+    - Else returns a sorted, de-duplicated list of normalized origins (scheme://host[:port]).
+    - Rejects entries with paths, queries, or fragments.
     """
     cleaned: list[str] = []
     for o in raw.split(","):
         s = o.strip().rstrip("/")
-        if s:
-            cleaned.append(s)
-    if "*" in cleaned:
-        return "*"
+        if not s:
+            continue
+        if s == "*":
+            return "*"
+        parts = urlsplit(s)
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.netloc
+            or any([parts.path, parts.query, parts.fragment])
+        ):
+            msg = f"Invalid CORS origin: {s!r}"
+            raise ValueError(msg)
+        scheme = parts.scheme.lower()
+        netloc = parts.netloc.lower()
+        cleaned.append(f"{scheme}://{netloc}")
     return sorted(set(cleaned))
 
 
@@ -264,39 +282,20 @@ def get_cors_config() -> dict:
     raw = settings.cors_allow_origins.strip()
     origins = normalize_origins(raw)
 
+    base_config = {
+        "allow_methods": ALLOWED_METHODS,
+        "allow_headers": ALLOWED_HEADERS,
+        "expose_headers": EXPOSE_HEADERS,
+        "max_age": 86400,
+    }
+
     if origins == "*":
-        return {
+        return base_config | {
             "allow_origins": ["*"],
             "allow_credentials": False,
-            "allow_methods": [
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "PATCH",
-                "OPTIONS",
-                "HEAD",
-            ],
-            "allow_headers": [
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "Accept-Language",
-            ],
-            "expose_headers": ["WWW-Authenticate", "Authorization"],
-            "max_age": 86400,
         }
 
-    return {
+    return base_config | {
         "allow_origins": origins,
         "allow_credentials": True,
-        "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
-        "allow_headers": [
-            "Authorization",
-            "Content-Type",
-            "Accept",
-            "Accept-Language",
-        ],
-        "expose_headers": ["WWW-Authenticate", "Authorization"],
-        "max_age": 86400,
     }

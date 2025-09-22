@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import User, UserRole
+from app.models import Run, User, UserRole
 from app.services.run.errors import RunNotFoundError
 from app.services.run.service import RunService
 
@@ -19,7 +19,7 @@ async def ensure_run_access(
     user: User,
     session: AsyncSession,
     run_service: RunService,
-) -> any:  # Run type
+) -> Run:  # Run type
     """Ensure user has access to the specified run.
 
     Args:
@@ -33,14 +33,14 @@ async def ensure_run_access(
 
     Raises:
         HTTPException: If user doesn't have access to the run
-        (403 Forbidden for auth, 404 for not found)
+        (404 Not Found to prevent enumeration)
     """
     try:
         run = await run_service.get_run(run_id, session)
         if run.user_id != user.id and user.role != UserRole.ADMIN:
             raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Access denied",
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Run not found",
             )
     except RunNotFoundError as e:
         raise HTTPException(

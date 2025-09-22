@@ -1,5 +1,6 @@
 import logging
 import mimetypes
+from collections.abc import AsyncGenerator
 from http import HTTPStatus
 from uuid import UUID
 
@@ -29,7 +30,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _get_file_generator(service: ArtifactService, storage_uri: str):
+async def _get_file_generator(
+    service: ArtifactService, storage_uri: str
+) -> AsyncGenerator[bytes, None]:
     """Async generator to stream artifact content."""
     try:
         async for chunk in service.retrieve_artifact(storage_uri):
@@ -83,6 +86,7 @@ async def get_run_artifact(
                 ),
                 "Content-Length": str(file_size),
                 "Cache-Control": "no-cache",
+                "X-Content-Type-Options": "nosniff",
             },
         )
 

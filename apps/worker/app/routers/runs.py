@@ -22,7 +22,6 @@ from app.services.run.errors import (
     FlowAccessDeniedError,
     InvalidFlowError,
     MissingSessionURLError,
-    RunNotFoundError,
     SessionCreationFailedError,
 )
 from app.services.run.service import RunService
@@ -93,13 +92,7 @@ async def get_run(
 ):
     """Get details of a specific run by ID."""
     service = RunService()
-    try:
-        return await ensure_run_access(run_id, current_user, session, service)
-
-    except RunNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e
+    return await ensure_run_access(run_id, current_user, session, service)
 
 
 @router.get("/runs", response_model=list[RunRead])
@@ -128,12 +121,8 @@ async def get_run_sessions(
 ):
     """Get all sessions for a specific run."""
     service = RunService()
-    try:
-        await ensure_run_access(run_id, current_user, session, service)
-        return await service.get_run_sessions(run_id, session)
-
-    except RunNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+    await ensure_run_access(run_id, current_user, session, service)
+    return await service.get_run_sessions(run_id, session)
 
 
 @router.get("/runs/{run_id}/events", response_model=list[EventRead])
@@ -144,12 +133,8 @@ async def get_run_events(
 ):
     """Get all events for a specific run."""
     service = RunService()
-    try:
-        await ensure_run_access(run_id, current_user, session, service)
-        return await service.get_run_events(run_id, session)
-
-    except RunNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+    await ensure_run_access(run_id, current_user, session, service)
+    return await service.get_run_events(run_id, session)
 
 
 @router.patch("/runs/{run_id}", response_model=RunRead)
@@ -161,14 +146,13 @@ async def update_run(
 ):
     """Update an existing run."""
     service = RunService()
+    await ensure_run_access(run_id, current_user, session, service)
     try:
-        await ensure_run_access(run_id, current_user, session, service)
         return await service.update_run(
             run_id, request.model_dump(exclude_unset=True), session
         )
-
-    except RunNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post("/runs/{run_id}/continue", response_model=RunRead)
@@ -180,11 +164,8 @@ async def continue_run(
 ):
     """Continue a run that is awaiting input."""
     service = RunService()
+    await ensure_run_access(run_id, current_user, session, service)
     try:
-        await ensure_run_access(run_id, current_user, session, service)
         return await service.continue_run(run_id, request, session)
-
-    except RunNotFoundError as e:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e
