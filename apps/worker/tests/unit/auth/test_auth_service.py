@@ -123,6 +123,33 @@ class TestAuthService:
 
             assert result.role == UserRole.USER
 
+    async def test_create_user_first_user_with_creator_role_fails(
+        self, auth_service, mock_session
+    ):
+        """Test that first user registration fails when creator_role is not None."""
+        user_data = UserCreate(
+            email="first@example.com", name="First User", password="password123"
+        )
+
+        # Mock database operations
+        mock_session.add.return_value = None
+        mock_session.commit.return_value = None
+        mock_session.refresh = AsyncMock()
+
+        # Mock the count query to return 0 (no existing users)
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 0
+        mock_session.execute.return_value = mock_result
+
+        # Test that passing creator_role=UserRole.ADMIN for first user fails
+        with (
+            patch("app.utils.auth.get_password_hash", return_value="hashed_password"),
+            pytest.raises(
+                ValueError, match="First user registration must not have a creator"
+            ),
+        ):
+            await auth_service.create_user(user_data, mock_session, UserRole.ADMIN)
+
     async def test_authenticate_user_success(self, auth_service, mock_session):
         """Test successful user authentication."""
         email = "test@example.com"

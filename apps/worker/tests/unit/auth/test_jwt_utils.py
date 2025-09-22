@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
-from jwt import PyJWTError
+from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
 
 from app.models import UserRole
 from app.utils.auth import (
@@ -86,7 +86,7 @@ class TestJWTUtilities:
             token = create_access_token(token_data)
 
             with patch("jwt.decode") as mock_decode:
-                mock_decode.side_effect = PyJWTError("Token expired")
+                mock_decode.side_effect = ExpiredSignatureError("Token expired")
                 with pytest.raises(HTTPException) as exc_info:
                     verify_token(token)
 
@@ -98,7 +98,7 @@ class TestJWTUtilities:
         invalid_token = "invalid.jwt.token"
 
         with patch("jwt.decode") as mock_decode:
-            mock_decode.side_effect = PyJWTError("Invalid signature")
+            mock_decode.side_effect = InvalidSignatureError("Invalid signature")
             with pytest.raises(HTTPException) as exc_info:
                 verify_token(invalid_token)
 

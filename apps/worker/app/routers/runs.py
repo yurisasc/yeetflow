@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import MAX_RUN_LIST_LIMIT
 from app.db import get_db_session
 from app.models import (
     EventRead,
@@ -114,8 +115,7 @@ async def get_run(
     """Get details of a specific run by ID."""
     service = RunService()
     try:
-        await _ensure_run_access(run_id, current_user, session, service)
-        return await service.get_run(run_id, session)
+        return await _ensure_run_access(run_id, current_user, session, service)
 
     except RunNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
@@ -124,7 +124,7 @@ async def get_run(
 @router.get("/runs", response_model=list[RunRead])
 async def list_runs(
     skip: int = Query(0, ge=0, le=1_000_000),
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(100, ge=1, le=MAX_RUN_LIST_LIMIT),
     current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):

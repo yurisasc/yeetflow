@@ -9,6 +9,8 @@ from app.models import Session as SessionModel
 
 logger = logging.getLogger(__name__)
 
+MAX_RUN_LIST_LIMIT = 200
+
 
 class RunRepository:
     """Repository for run persistence operations."""
@@ -36,6 +38,9 @@ class RunRepository:
         self, session: AsyncSession, skip: int = 0, limit: int = 100
     ) -> list[Run]:
         """List runs with pagination."""
+        # Normalize pagination params
+        skip = max(0, int(skip))
+        limit = max(1, min(int(limit), MAX_RUN_LIST_LIMIT))
         result = await session.execute(
             select(Run)
             .order_by(Run.created_at.desc(), Run.id.desc())
@@ -51,8 +56,7 @@ class RunRepository:
         # Normalize pagination params
         skip = max(0, int(skip))
         # Enforce a server-side cap to avoid unbounded fetches
-        max_limit = 200
-        limit = max(1, min(int(limit), max_limit))
+        limit = max(1, min(int(limit), MAX_RUN_LIST_LIMIT))
         result = await session.execute(
             select(Run)
             .where(Run.user_id == user_id)

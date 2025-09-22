@@ -39,10 +39,15 @@ class MockStorageBackend:
         raise FileNotFoundError(error_msg)
 
     async def retrieve(self, storage_uri: str):
-        """Return file content for test files."""
+        """Yield file content in chunks for streaming tests."""
         file_path = self.test_files.get(storage_uri)
         if file_path and file_path.exists():
-            yield file_path.read_bytes()
+            with file_path.open("rb") as f:
+                while True:
+                    chunk = f.read(8192)
+                    if not chunk:
+                        break
+                    yield chunk
         else:
             error_msg = f"File not found: {storage_uri}"
             raise FileNotFoundError(error_msg)

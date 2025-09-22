@@ -128,7 +128,10 @@ class Settings(BaseSettings):
     # CORS configuration
     cors_allow_origins: str = Field(
         default=DEFAULT_CORS_ALLOW_ORIGINS,
-        description="CORS allowed origins for API (comma-separated)",
+        description=(
+            "CORS allowed origins for API (comma-separated). "
+            "Use '*' for development, explicit origins for production."
+        ),
     )
 
     model_config = SettingsConfigDict(
@@ -193,9 +196,14 @@ def get_cors_config() -> dict:
     if raw == "*":
         return {
             "allow_origins": ["*"],
-            "allow_credentials": False,
             "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-            "allow_headers": ["Authorization", "Content-Type"],
+            "allow_headers": [
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Accept-Language",
+            ],
+            "expose_headers": ["WWW-Authenticate"],
             "max_age": 86400,
         }
     origins = [o.strip() for o in raw.split(",") if o.strip()]
@@ -203,6 +211,12 @@ def get_cors_config() -> dict:
         "allow_origins": origins,
         "allow_credentials": True,
         "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        "allow_headers": ["Authorization", "Content-Type"],
+        "allow_headers": [
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "Accept-Language",
+        ],
+        "expose_headers": ["WWW-Authenticate"],
         "max_age": 86400,
     }

@@ -65,7 +65,7 @@ class TestSessionModel:
         # Create session
         db_session = DBSession(
             run_id=run.id,
-            status="active",
+            status=SessionStatus.ACTIVE,
             session_url="https://example.com/session/123",
         )
         session.add(db_session)
@@ -76,7 +76,8 @@ class TestSessionModel:
 
         assert session_read.id == db_session.id
         assert session_read.run_id == db_session.run_id
-        assert session_read.status == db_session.status
+        assert db_session.status == SessionStatus.ACTIVE
+        assert session_read.status == SessionStatus.ACTIVE.value
         assert session_read.session_url == db_session.session_url
         assert session_read.created_at == db_session.created_at
         assert session_read.ended_at == db_session.ended_at

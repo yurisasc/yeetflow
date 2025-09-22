@@ -18,16 +18,18 @@ from app.utils.auth import (
 # Module-level dependencies
 get_db_session_dep = Depends(get_db_session)
 require_admin_or_first_user_dep = Depends(require_admin_or_first_user)
-oauth2_form_dep = Depends()
+oauth2_form_dep = Depends(OAuth2PasswordRequestForm)
 get_current_user_dep = Depends(get_current_user)
 check_admin_role_dep = Depends(check_admin_role)
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter()
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/auth/register", response_model=UserRead, status_code=status.HTTP_201_CREATED
+)
 async def register_user(
     user_data: UserCreate,
     session: AsyncSession = get_db_session_dep,
@@ -46,28 +48,21 @@ async def register_user(
         # Create the user with role-based permissions
         user = await auth_service.create_user(user_data, session, creator_role)
 
-        return UserRead(
-            id=user.id,
-            email=user.email,
-            name=user.name,
-            role=user.role,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-        )
+        return UserRead.model_validate(user)
 
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
     except Exception as e:
-        logger.exception("Error registering user: %s")
+        logger.exception("Error registering user")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to register user",
         ) from e
 
 
-@router.post("/login", response_model=Token)
+@router.post("/auth/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = oauth2_form_dep,
     session: AsyncSession = get_db_session_dep,
@@ -92,7 +87,7 @@ async def login(
     return tokens
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/auth/refresh", response_model=Token)
 async def refresh_access_token(
     refresh_token: str = Body(..., embed=True),
     session: AsyncSession = get_db_session_dep,
@@ -117,12 +112,18 @@ async def refresh_access_token(
                 detail="Invalid refresh token",
                 headers={"WWW-Authenticate": "Bearer"},
             ) from e
+        if "Invalid token type" in error_detail:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from e
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_detail,
         ) from e
     except Exception as e:
-        logger.exception("Error refreshing token: %s")
+        logger.exception("Error refreshing token")
         # Check if it's a JWT-related error
         if "JWT" in str(e) or "token" in str(e).lower():
             raise HTTPException(
@@ -136,20 +137,13 @@ async def refresh_access_token(
         ) from e
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/auth/me", response_model=UserRead)
 async def get_current_user_info(current_user: User = get_current_user_dep):
     """Get current authenticated user information."""
-    return UserRead(
-        id=current_user.id,
-        email=current_user.email,
-        name=current_user.name,
-        role=current_user.role,
-        created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
-    )
+    return UserRead.model_validate(current_user)
 
 
-@router.get("/users", response_model=list[UserRead])
+@router.get("/auth/users", response_model=list[UserRead])
 async def get_all_users(
     session: AsyncSession = get_db_session_dep,
     _: User = check_admin_role_dep,  # Only admins can access
@@ -159,21 +153,19 @@ async def get_all_users(
     return await auth_service.get_all_users(session)
 
 
-@router.patch("/users/{user_id}/role", response_model=UserRead)
+@router.patch("/auth/users/{user_id}/role", response_model=UserRead)
 async def update_user_role(
     user_id: UUID,
     new_role: UserRole,
     session: AsyncSession = get_db_session_dep,
     current_user: User = check_admin_role_dep,  # Only admins can update roles
 ):
-    """Update a users role (admin only)."""
-    user_uuid = user_id
-
+    """Update a user role (admin only)."""
     auth_service = AuthService()
 
     try:
         updated_user = await auth_service.update_user_role(
-            user_uuid, new_role, session, current_user.role
+            user_id, new_role, session, current_user.role
         )
 
         if not updated_user:
@@ -181,14 +173,7 @@ async def update_user_role(
                 status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
             ) from None
 
-        return UserRead(
-            id=updated_user.id,
-            email=updated_user.email,
-            name=updated_user.name,
-            role=updated_user.role,
-            created_at=updated_user.created_at,
-            updated_at=updated_user.updated_at,
-        )
+        return UserRead.model_validate(updated_user)
 
     except ValueError as e:
         # Handle permission errors (non-admin trying to update)

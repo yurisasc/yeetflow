@@ -320,7 +320,7 @@ class RunService:
         if "result_uri" in request:
             run.result_uri = request["result_uri"]
         if "status" in request:
-            run.status = request["status"]
+            run.status = RunStatus(request["status"])
         if "error" in request:
             run.error = request["error"]
         if "ended_at" in request:

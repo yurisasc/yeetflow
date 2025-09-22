@@ -124,13 +124,6 @@ def create_refresh_token(data: dict[str, Any]) -> str:
 def verify_token(token: str) -> TokenData:
     """Verify and decode a JWT access token."""
 
-    def _raise_unauthorized(detail: str) -> None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=detail,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 

@@ -54,7 +54,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if scheme.lower() != "bearer":
                 error_msg = "Invalid scheme"
                 raise ValueError(error_msg)
-            return token
+            return token.strip()
 
         try:
             token = _validate_scheme()
@@ -93,9 +93,10 @@ class CORSMiddleware(BaseHTTPMiddleware):
         # Get CORS configuration
         cors_config = get_cors_config()
         self.allow_origins = cors_config["allow_origins"]
-        self.allow_credentials = cors_config["allow_credentials"]
+        self.allow_credentials = cors_config.get("allow_credentials", False)
         self.allowed_methods = cors_config["allow_methods"]
         self.allowed_headers = cors_config["allow_headers"]
+        self.expose_headers = cors_config.get("expose_headers", [])
         self.max_age = cors_config["max_age"]
 
         # Determine if we allow all origins
@@ -132,6 +133,10 @@ class CORSMiddleware(BaseHTTPMiddleware):
         response.headers["Access-Control-Allow-Headers"] = ", ".join(
             self.allowed_headers
         )
+        if self.expose_headers:
+            response.headers["Access-Control-Expose-Headers"] = ", ".join(
+                self.expose_headers
+            )
         response.headers["Access-Control-Max-Age"] = str(self.max_age)
 
         return response

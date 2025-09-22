@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.security import OAuth2PasswordBearer
 
 from app.config import settings
 from app.constants import API_TITLE, API_V1_PREFIX, API_VERSION, SERVICE_NAME
@@ -9,13 +8,6 @@ from app.db import engine, init_db
 from app.middleware.auth import AuthMiddleware
 from app.middleware.auth import CORSMiddleware as WorkerCORSMiddleware
 from app.routers import artifacts, auth, runs
-
-# OAuth2 scheme for OpenAPI documentation
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{API_V1_PREFIX}/auth/login",
-    scheme_name="OAuth2",
-    description="OAuth2 password flow for user authentication",
-)
 
 
 @asynccontextmanager

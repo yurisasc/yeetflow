@@ -76,6 +76,10 @@ class TestRelationshipsAndCascades:
         result = await session.execute(stmt)
         complete_run = result.scalar_one()
 
+        # Verify the actual stored session statuses
+        statuses = {getattr(s.status, "value", s.status) for s in complete_run.sessions}
+        assert statuses == {"active", "ended"}
+
         assert complete_run.user.email == user.email
         assert complete_run.flow.key == flow.key
         assert len(complete_run.sessions) == EXPECTED_FLOW_COUNT

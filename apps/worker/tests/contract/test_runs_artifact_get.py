@@ -8,6 +8,7 @@ class TestRunsArtifactGetContract(BaseTestClass):
     """Contract tests for GET /runs/{runId}/artifact endpoint."""
 
     LARGE_FILE_SIZE = 10000
+    RANGE_REQUEST_SIZE = 100
 
     @patch("app.services.artifact.service.get_storage")
     def test_get_runs_artifact_returns_200_with_file(self, mock_get_storage, tmp_path):
@@ -177,25 +178,29 @@ class TestRunsArtifactGetContract(BaseTestClass):
         # Test that response supports streaming/chunked transfer
         # This is indicated by the transfer-encoding header or content-length
 
-        # Either chunked transfer or explicit content-length should be present
-        # Note: FastAPI/Starlette handles this automatically for StreamingResponse
-        # The test is mainly to ensure we get a successful response
-        assert response.status_code == HTTPStatus.OK
+        # Content-Length header indicates streaming capability
+        # Test client buffers response, but header proves streaming setup
+        assert "content-length" in response.headers
+        assert response.headers["content-length"] == str(self.LARGE_FILE_SIZE)
 
-        # For large files, the response should not load everything into memory
-        content = response.content
-        assert len(content) > 0, "Should have file content"
-        assert len(content) == self.LARGE_FILE_SIZE, "Should have correct file size"
+        # Verify we can access content without loading everything at once in test
+        # (In real usage, this would be streamed chunk by chunk)
+        assert hasattr(response, "content"), "Response should have content"
+        # The content length should match what we expect for streaming validation
+        assert len(response.content) == self.LARGE_FILE_SIZE
 
-        # Additional test: verify that partial content requests work (if supported)
-        # This tests range request support for large files
+        # Test that the response supports range requests (partial content)
+        # This is important for large file handling and streaming validation
         range_response = self.client.get(
             f"{self.API_PREFIX}/runs/{run_id}/artifact",
-            headers={"Range": "bytes=0-99", **headers},
+            headers={"Range": f"bytes=0-{self.RANGE_REQUEST_SIZE - 1}", **headers},
         )
 
         # Should return HTTPStatus.PARTIAL_CONTENT if range requests are supported
         if range_response.status_code == HTTPStatus.PARTIAL_CONTENT:
             assert "content-range" in range_response.headers
-            range_request_size = 100
-            assert len(range_response.content) <= range_request_size
+            assert "content-length" in range_response.headers
+            # Should return exactly RANGE_REQUEST_SIZE bytes
+            # (0 to RANGE_REQUEST_SIZE-1 inclusive)
+            assert len(range_response.content) == self.RANGE_REQUEST_SIZE
+            assert range_response.content == large_content[: self.RANGE_REQUEST_SIZE]
