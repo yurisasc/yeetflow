@@ -3,7 +3,7 @@ Centralized configuration management for the YeetFlow worker application.
 All environment variables are loaded and validated here.
 """
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default configuration values
@@ -158,7 +158,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    def model_post_init(self, _) -> None:
+    @model_validator(mode="after")
+    def validate_security(self) -> "Settings":
         if not self.secret_key or not self.secret_key.strip():
             msg = "SECRET_KEY must be set and non-empty"
             raise ValueError(msg)
@@ -171,6 +172,15 @@ class Settings(BaseSettings):
         if not self.debug and self.cors_allow_origins.strip() == "*":
             msg = "CORS_ALLOW_ORIGINS cannot be '*' in production; set explicit origins"
             raise ValueError(msg)
+        # Also protect Socket.IO CORS in production
+        if not self.debug and self.socketio_cors.strip() == "*":
+            msg = "SOCKETIO_CORS cannot be '*' in production; set explicit origins"
+            raise ValueError(msg)
+        # Optional: forbid empty origins in production
+        if not self.debug and not self.cors_allow_origins.strip():
+            msg = "CORS_ALLOW_ORIGINS cannot be empty in production"
+            raise ValueError(msg)
+        return self
 
 
 # Global settings instance
@@ -212,7 +222,11 @@ def get_retry_config() -> dict:
 def get_socketio_config() -> dict:
     """Get Socket.IO configuration."""
     raw = settings.socketio_cors.strip()
-    origins = "*" if raw == "*" else [o.strip() for o in raw.split(",") if o.strip()]
+    origins = (
+        "*"
+        if raw == "*"
+        else sorted({o.strip().rstrip("/") for o in raw.split(",") if o.strip()})
+    )
     return {"cors_allowed_origins": origins, "cors_enabled": True}
 
 
@@ -220,6 +234,7 @@ def get_cors_config() -> dict:
     """Get CORS configuration for the API."""
     raw = settings.cors_allow_origins.strip()
     origins = [o.strip() for o in raw.split(",") if o.strip()]
+
     if "*" in origins:
         return {
             "allow_origins": ["*"],
