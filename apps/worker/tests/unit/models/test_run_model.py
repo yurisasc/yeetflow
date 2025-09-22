@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from app.models import Flow, Run, RunCreate, RunStatus, User
+from app.models import Flow, Run, RunStatus, User
 
 # Test constants
 RUN_USER_PASSWORD = "runuser_password_hash"
@@ -19,17 +19,20 @@ class TestRunModel:
 
     async def test_create_run_with_relationships(self, session):
         """Test creating Run with User and Flow relationships."""
-        # Create user and flow first
+        # Create user first and commit to get the ID
         user = User(email="runuser@example.com", password_hash=RUN_USER_PASSWORD)
-        flow = Flow(key="run-flow", name="Run Flow", created_by=user.id)
-        session.add_all([user, flow])
+        session.add(user)
         await session.commit()
         await session.refresh(user)
+
+        # Now create flow with the user's ID
+        flow = Flow(key="run-flow", name="Run Flow", created_by=user.id)
+        session.add(flow)
+        await session.commit()
         await session.refresh(flow)
 
         # Create run
-        run_data = RunCreate(flow_id=flow.id, user_id=user.id)
-        run = Run(**run_data.model_dump())
+        run = Run(flow_id=flow.id, user_id=user.id)
         session.add(run)
         await session.commit()
         await session.refresh(run)
@@ -51,10 +54,15 @@ class TestRunModel:
 
     async def test_run_status_enum_constraint(self, session):
         """Test Run status enum validation."""
-        # Create user and flow first
+        # Create user first and commit to get the ID
         user = User(email="statususer@example.com", password_hash=STATUS_USER_PASSWORD)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Now create flow with the user's ID
         flow = Flow(key="status-flow", name="Status Flow", created_by=user.id)
-        session.add_all([user, flow])
+        session.add(flow)
         await session.commit()
 
         # Valid status should work
@@ -73,8 +81,13 @@ class TestRunModel:
 
         # First, verify that valid foreign keys work
         user = User(email="fktest@example.com", password_hash=FKTEST_PASSWORD)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Now create flow with the user's ID
         flow = Flow(key="fktest-flow", name="FK Test Flow", created_by=user.id)
-        session.add_all([user, flow])
+        session.add(flow)
         await session.commit()
 
         # This should work - valid foreign keys
@@ -93,3 +106,71 @@ class TestRunModel:
         with pytest.raises(IntegrityError):
             await session.commit()
         await session.rollback()
+
+    async def test_run_cascade_delete_from_user(self, session):
+        """Test that deleting a User cascades to delete associated Runs."""
+        # Create user
+        user = User(email="cascadetest@example.com", password_hash="cascade_password")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Create flow
+        flow = Flow(key="cascade-flow", name="Cascade Flow", created_by=user.id)
+        session.add(flow)
+        await session.commit()
+        await session.refresh(flow)
+
+        # Create run
+        run = Run(flow_id=flow.id, user_id=user.id)
+        session.add(run)
+        await session.commit()
+        await session.refresh(run)
+
+        # Verify run exists
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is not None
+
+        # Delete user - this should cascade to delete the run
+        await session.delete(user)
+        await session.commit()
+
+        # Verify run is deleted
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is None
+
+    async def test_run_cascade_delete_from_flow(self, session):
+        """Test that deleting a Flow cascades to delete associated Runs."""
+        # Create user
+        user = User(email="fc@example.com", password_hash="flowcascade_password")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        # Create flow
+        flow = Flow(key="flow-cascade", name="Flow Cascade Flow", created_by=user.id)
+        session.add(flow)
+        await session.commit()
+        await session.refresh(flow)
+
+        # Create run
+        run = Run(flow_id=flow.id, user_id=user.id)
+        session.add(run)
+        await session.commit()
+        await session.refresh(run)
+
+        # Verify run exists
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is not None
+
+        # Delete flow - this should cascade to delete the run
+        await session.delete(flow)
+        await session.commit()
+
+        # Verify run is deleted
+        stmt = select(Run).where(Run.id == run.id)
+        result = await session.execute(stmt)
+        assert result.scalar_one_or_none() is None

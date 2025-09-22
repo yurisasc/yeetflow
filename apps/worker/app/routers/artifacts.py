@@ -1,5 +1,6 @@
 import logging
 import mimetypes
+from collections.abc import AsyncGenerator
 from http import HTTPStatus
 from uuid import UUID
 
@@ -8,15 +9,20 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db_session
+from app.models import User
 from app.services.artifact.errors import (
     ArtifactAccessError,
     ArtifactNotFoundError,
-    RunNotFoundError,
 )
 from app.services.artifact.service import ArtifactService
+from app.services.run.errors import RunNotFoundError
+from app.services.run.service import RunService
+from app.utils.auth import get_current_user
 from app.utils.filename import sanitize_filename
+from app.utils.run import ensure_run_access
 
 db_dependency = Depends(get_db_session)
+current_user_dependency = Depends(get_current_user)
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +30,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _get_file_generator(service: ArtifactService, storage_uri: str):
+async def _get_file_generator(
+    service: ArtifactService, storage_uri: str
+) -> AsyncGenerator[bytes, None]:
     """Async generator to stream artifact content."""
     try:
         async for chunk in service.retrieve_artifact(storage_uri):
             yield chunk
     except ArtifactNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
+    except ArtifactAccessError as e:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail=str(e)) from e
     except Exception as e:
         logger.exception("Error streaming artifact")
         raise HTTPException(
@@ -40,8 +50,16 @@ async def _get_file_generator(service: ArtifactService, storage_uri: str):
 
 
 @router.get("/runs/{run_id}/artifact")
-async def get_run_artifact(run_id: UUID, session: AsyncSession = db_dependency):
+async def get_run_artifact(
+    run_id: UUID,
+    current_user: User = current_user_dependency,
+    session: AsyncSession = db_dependency,
+):
     """Stream the artifact produced by a run to the client."""
+    # Check run access (user owns run or is admin)
+    run_service = RunService()
+    await ensure_run_access(run_id, current_user, session, run_service)
+
     service = ArtifactService()
 
     try:
@@ -68,6 +86,7 @@ async def get_run_artifact(run_id: UUID, session: AsyncSession = db_dependency):
                 ),
                 "Content-Length": str(file_size),
                 "Cache-Control": "no-cache",
+                "X-Content-Type-Options": "nosniff",
             },
         )
 
@@ -76,6 +95,4 @@ async def get_run_artifact(run_id: UUID, session: AsyncSession = db_dependency):
     except ArtifactNotFoundError as e:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e)) from e
     except ArtifactAccessError as e:
-        raise HTTPException(
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail=str(e)) from e
