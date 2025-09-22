@@ -8,15 +8,19 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db_session
+from app.models import User, UserRole
 from app.services.artifact.errors import (
     ArtifactAccessError,
     ArtifactNotFoundError,
-    RunNotFoundError,
 )
 from app.services.artifact.service import ArtifactService
+from app.services.run.errors import RunNotFoundError
+from app.services.run.service import RunService
+from app.utils.auth import get_current_user
 from app.utils.filename import sanitize_filename
 
 db_dependency = Depends(get_db_session)
+current_user_dependency = Depends(get_current_user)
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +44,26 @@ async def _get_file_generator(service: ArtifactService, storage_uri: str):
 
 
 @router.get("/runs/{run_id}/artifact")
-async def get_run_artifact(run_id: UUID, session: AsyncSession = db_dependency):
+async def get_run_artifact(
+    run_id: UUID,
+    current_user: User = current_user_dependency,
+    session: AsyncSession = db_dependency,
+):
     """Stream the artifact produced by a run to the client."""
+    # Check run access (user owns run or is admin)
+    run_service = RunService()
+    try:
+        run = await run_service.get_run(run_id, session)
+        if run.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Run not found",
+            )
+    except RunNotFoundError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Run not found"
+        ) from e
+
     service = ArtifactService()
 
     try:

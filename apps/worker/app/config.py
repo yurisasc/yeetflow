@@ -24,6 +24,18 @@ DEFAULT_SOCKETIO_CORS = "*"
 DEFAULT_CORS_ALLOW_ORIGINS = "*"
 
 
+def normalize_origins(raw: str) -> str | list[str]:
+    """Normalize CORS origins from comma-separated string.
+
+    Returns "*" if input contains wildcard, otherwise returns sorted list
+    of cleaned origins.
+    """
+    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    if "*" in origins:
+        return "*"
+    return sorted(set(origins))
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -169,17 +181,24 @@ class Settings(BaseSettings):
         if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
             msg = "SECRET_KEY must be set in production; set DEBUG=true for local dev"
             raise ValueError(msg)
-        if not self.debug and "*" in normalize_origins(self.cors_allow_origins.strip()):
+        cors_norm = normalize_origins(self.cors_allow_origins.strip())
+        sio_norm = normalize_origins(self.socketio_cors.strip())
+        if not self.debug and cors_norm == "*":
             msg = (
                 "CORS_ALLOW_ORIGINS cannot contain '*' in production; "
                 "set explicit origins"
             )
             raise ValueError(msg)
-        if not self.debug and "*" in normalize_origins(self.socketio_cors.strip()):
+        if not self.debug and sio_norm == "*":
             msg = "SOCKETIO_CORS cannot contain '*' in production; set explicit origins"
             raise ValueError(msg)
-        if not self.debug and not self.cors_allow_origins.strip():
-            msg = "CORS_ALLOW_ORIGINS cannot be empty in production"
+        # Guard against commas-only/whitespace resulting in an empty list
+        if not self.debug and isinstance(cors_norm, list) and len(cors_norm) == 0:
+            msg = "CORS_ALLOW_ORIGINS cannot be empty (or commas-only) in production"
+            raise ValueError(msg)
+        # Guard against commas-only/whitespace resulting in an empty list
+        if not self.debug and isinstance(sio_norm, list) and len(sio_norm) == 0:
+            msg = "SOCKETIO_CORS cannot be empty (or commas-only) in production"
             raise ValueError(msg)
         if self.refresh_token_expire_days * 1440 <= self.access_token_expire_minutes:
             msg = (
@@ -192,18 +211,6 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-
-
-def normalize_origins(raw: str) -> str | list[str]:
-    """Normalize CORS origins from comma-separated string.
-
-    Returns "*" if input contains wildcard, otherwise returns sorted list
-    of cleaned origins.
-    """
-    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
-    if "*" in origins:
-        return "*"
-    return sorted(set(origins))
 
 
 def get_database_url() -> str:
