@@ -18,8 +18,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -49,8 +49,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -77,8 +77,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440002",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -106,8 +106,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440005",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -128,8 +128,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440003",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -153,8 +153,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440004",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
@@ -177,8 +177,8 @@ class TestCompletionArtifactIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs",
             json={
                 "flow_id": "550e8400-e29b-41d4-a716-446655440002",
-                "user_id": "550e8400-e29b-41d4-a716-446655440000",
             },
+            headers=self.get_user_auth_headers(),
         )
         assert response.status_code == HTTPStatus.CREATED
 
