@@ -67,11 +67,13 @@ class Settings(BaseSettings):
     )
 
     access_token_expire_minutes: int = Field(
+        ge=1,
         default=DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
         description="Access token expiration time in minutes",
     )
 
     refresh_token_expire_days: int = Field(
+        ge=1,
         default=DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
         description="Refresh token expiration time in days",
     )
@@ -211,7 +213,15 @@ def get_cors_config() -> dict:
     if raw == "*":
         return {
             "allow_origins": ["*"],
-            "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+            "allow_methods": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH",
+                "OPTIONS",
+                "HEAD",
+            ],
             "allow_headers": [
                 "Authorization",
                 "Content-Type",
@@ -225,7 +235,7 @@ def get_cors_config() -> dict:
     return {
         "allow_origins": origins,
         "allow_credentials": True,
-        "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
         "allow_headers": [
             "Authorization",
             "Content-Type",
