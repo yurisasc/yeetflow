@@ -3,7 +3,7 @@ Centralized configuration management for the YeetFlow worker application.
 All environment variables are loaded and validated here.
 """
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default configuration values
@@ -68,12 +68,14 @@ class Settings(BaseSettings):
 
     access_token_expire_minutes: int = Field(
         ge=1,
+        le=1440,  # <= 24h
         default=DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
         description="Access token expiration time in minutes",
     )
 
     refresh_token_expire_days: int = Field(
         ge=1,
+        le=90,  # <= 90 days
         default=DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
         description="Refresh token expiration time in days",
     )
@@ -147,6 +149,35 @@ class Settings(BaseSettings):
             "Use '*' for development, explicit origins for production."
         ),
     )
+
+    @field_validator("cors_allow_origins")
+    @classmethod
+    def validate_cors_allow_origins(cls, v: str, info) -> str:
+        """Validate CORS origins configuration."""
+        # Get debug flag from the validation context
+        debug = info.data.get("debug", False)
+
+        # Allow wildcard only in debug mode
+        if not debug and v.strip() == "*":
+            msg = (
+                "CORS wildcard '*' is not allowed in production. "
+                "Please specify explicit origins (comma-separated) "
+                "for CORS_ALLOW_ORIGINS."
+            )
+            raise ValueError(msg)
+
+        # For comma-separated values, check if any is wildcard
+        if not debug:
+            origins = [origin.strip() for origin in v.split(",")]
+            if "*" in origins:
+                msg = (
+                    "CORS wildcard '*' is not allowed in production. "
+                    "Please specify explicit origins (comma-separated) "
+                    "for CORS_ALLOW_ORIGINS."
+                )
+                raise ValueError(msg)
+
+        return v
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -228,7 +259,7 @@ def get_cors_config() -> dict:
                 "Accept",
                 "Accept-Language",
             ],
-            "expose_headers": ["WWW-Authenticate"],
+            "expose_headers": ["WWW-Authenticate", "Authorization"],
             "max_age": 86400,
         }
     origins = [o.strip() for o in raw.split(",") if o.strip()]
@@ -242,6 +273,6 @@ def get_cors_config() -> dict:
             "Accept",
             "Accept-Language",
         ],
-        "expose_headers": ["WWW-Authenticate"],
+        "expose_headers": ["WWW-Authenticate", "Authorization"],
         "max_age": 86400,
     }

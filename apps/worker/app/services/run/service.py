@@ -43,56 +43,6 @@ class RunService:
         self.steel_service = steel_service or SteelService()
         self.repository = repository or RunRepository()
 
-    async def create_run(self, request: RunCreate, session: AsyncSession) -> Run:
-        """Create a new run with Steel.dev session integration."""
-        # Validate that the flow exists
-        await self._validate_flow_exists(request.flow_id, session)
-
-        run_id = uuid4()
-
-        try:
-            # Create initial run record
-            await self._create_run_record(request, run_id, session)
-
-            # Create Steel session
-            session_data = await self.steel_service.create_session()
-
-            if not session_data:
-                await self._handle_session_creation_failure(
-                    run_id, session, "Failed to create browser session"
-                )
-                self._fail_session_creation()
-
-            session_url = session_data.get("sessionViewerUrl")
-            browser_session_id = session_data.get("id")
-
-            if not session_url:
-                await self._handle_session_creation_failure(
-                    run_id, session, "Session created without viewer URL"
-                )
-                self._fail_missing_url()
-
-            # Create session record and finalize run
-            await self._create_session_and_finalize_run(
-                run_id, session_url, browser_session_id, session
-            )
-
-            # Emit final progress event
-            await self._emit_progress_safe(
-                run_id,
-                {
-                    "status": RunStatus.RUNNING.value,
-                    "session_url": session_url,
-                    "message": "Session initialized",
-                },
-            )
-
-        except Exception:
-            # Handle any other errors
-            logger.exception("Error creating run")
-            await session.rollback()
-            raise
-
     async def create_run_with_user(
         self, request: RunCreate, user: User, session: AsyncSession
     ) -> Run:
@@ -177,29 +127,6 @@ class RunService:
     async def get_run_events(self, run_id: UUID, session: AsyncSession) -> list[Event]:
         """Get all events for a specific run."""
         return await self.repository.get_events(session, run_id)
-
-    # Private helper methods
-    async def _create_run_record(
-        self, request: RunCreate, run_id: UUID, session: AsyncSession
-    ) -> Run:
-        """Create the initial run record."""
-        run = Run(
-            id=run_id,
-            flow_id=request.flow_id,
-            user_id=request.user_id,
-            status=RunStatus.PENDING,
-        )
-        run = await self.repository.create(session, run)
-
-        # Emit pending status event
-        await self._emit_progress_safe(
-            run_id,
-            {
-                "status": RunStatus.PENDING.value,
-                "message": "Run created, initializing session",
-            },
-        )
-        return run
 
     async def _handle_session_creation_failure(
         self, run_id: UUID, session: AsyncSession, error_message: str
