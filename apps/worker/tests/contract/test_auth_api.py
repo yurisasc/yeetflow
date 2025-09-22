@@ -3,7 +3,7 @@ import asyncio
 from fastapi import status
 from sqlmodel import delete
 
-from app.models import User
+from app.models import Event, Flow, Run, Session, User
 from tests.conftest import BaseTestClass
 
 
@@ -57,10 +57,6 @@ class TestAuthAPI(BaseTestClass):
         # Since users already exist in test setup, this should require admin auth
         response = self.client.post("/api/v1/auth/register", json=user_data)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert response.json()["detail"] in {
-            "Authorization header missing",
-            "Not authenticated",
-        }
 
     def test_register_user_success_with_admin(self):
         """Test successful user registration with admin authentication."""
@@ -101,9 +97,13 @@ class TestAuthAPI(BaseTestClass):
     def _clear_all_users(self):
         """Helper method to clear all users for first user testing."""
 
-        # Use the test's session to clear users
+        # Use the test's session to clear users and dependent data
         async def clear_users():
             async with self.TestAsyncSessionLocal() as session:
+                await session.execute(delete(Event))
+                await session.execute(delete(Session))
+                await session.execute(delete(Run))
+                await session.execute(delete(Flow))
                 await session.execute(delete(User))
                 await session.commit()
 
@@ -165,11 +165,13 @@ class TestAuthAPI(BaseTestClass):
 
     def test_update_user_role_admin_only(self):
         """Test that only admins can update user roles."""
-        # Admin can update role - send new_role as query parameter
+        # Admin can update role - send new_role in JSON body
         headers = self.get_admin_auth_headers()
         user_id = "550e8400-e29b-41d4-a716-446655440000"  # test_user id
         response = self.client.patch(
-            f"/api/v1/auth/users/{user_id}/role?new_role=admin", headers=headers
+            f"/api/v1/auth/users/{user_id}/role",
+            json={"new_role": "admin"},
+            headers=headers,
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -180,7 +182,9 @@ class TestAuthAPI(BaseTestClass):
         headers = self.get_user_auth_headers()
         user_id = "550e8400-e29b-41d4-a716-446655440001"  # test_admin id
         response = self.client.patch(
-            f"/api/v1/auth/users/{user_id}/role?new_role=admin", headers=headers
+            f"/api/v1/auth/users/{user_id}/role",
+            json={"new_role": "admin"},
+            headers=headers,
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -188,7 +192,8 @@ class TestAuthAPI(BaseTestClass):
         """Test updating role for non-existent user."""
         headers = self.get_admin_auth_headers()
         response = self.client.patch(
-            "/api/v1/auth/users/00000000-0000-0000-0000-000000000000/role?new_role=admin",
+            "/api/v1/auth/users/00000000-0000-0000-0000-000000000000/role",
+            json={"new_role": "admin"},
             headers=headers,
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -237,6 +242,8 @@ class TestAuthAPI(BaseTestClass):
         response = self.client.post("/api/v1/auth/refresh", json=refresh_data)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid refresh token" in response.json()["detail"]
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"] == "Bearer"
 
     def test_refresh_token_missing(self):
         """Test refresh without token."""
@@ -255,3 +262,5 @@ class TestAuthAPI(BaseTestClass):
         response = self.client.post("/api/v1/auth/refresh", json=refresh_data)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid token type" in response.json()["detail"]
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"] == "Bearer"

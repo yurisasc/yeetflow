@@ -78,6 +78,7 @@ async def create_run(
             detail=str(e),
         ) from e
     except FlowAccessDeniedError as e:
+        logger.info("Access denied to flow: %s", str(e))
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN,
             detail="Access denied to flow",

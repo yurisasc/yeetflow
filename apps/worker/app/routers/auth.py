@@ -3,8 +3,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from jwt import ExpiredSignatureError, InvalidTokenError
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import BOOTSTRAP_USER_EMAIL
 from app.db import get_db_session
 from app.models import User, UserCreate, UserRead, UserRole
 from app.services.auth import AuthService
@@ -27,6 +30,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class UpdateUserRole(BaseModel):
+    new_role: UserRole
+
+
 @router.post(
     "/auth/register", response_model=UserRead, status_code=status.HTTP_201_CREATED
 )
@@ -42,7 +49,7 @@ async def register_user(
         # For first user registration, pass None as creator_role
         # The service will validate this is truly the first user
         creator_role = (
-            None if current_user.email == "system@yeetflow.local" else current_user.role
+            None if current_user.email == BOOTSTRAP_USER_EMAIL else current_user.role
         )
 
         # Create the user with role-based permissions
@@ -99,38 +106,14 @@ async def refresh_access_token(
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
-    except ValueError as e:
-        # Handle validation errors (invalid tokens, user not found, etc.)
-        error_detail = str(e)
-        if (
-            "Invalid refresh token" in error_detail
-            or "missing user ID" in error_detail
-            or "User not found" in error_detail
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from e
-        if "Invalid token type" in error_detail:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from e
+    except (ExpiredSignatureError, InvalidTokenError) as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_detail,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
         ) from e
     except Exception as e:
         logger.exception("Error refreshing token")
-        # Check if it's a JWT-related error
-        if "JWT" in str(e) or "token" in str(e).lower():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to refresh token",
@@ -156,7 +139,7 @@ async def get_all_users(
 @router.patch("/auth/users/{user_id}/role", response_model=UserRead)
 async def update_user_role(
     user_id: UUID,
-    new_role: UserRole,
+    payload: UpdateUserRole,
     session: AsyncSession = get_db_session_dep,
     current_user: User = check_admin_role_dep,  # Only admins can update roles
 ):
@@ -165,7 +148,7 @@ async def update_user_role(
 
     try:
         updated_user = await auth_service.update_user_role(
-            user_id, new_role, session, current_user.role
+            user_id, payload.new_role, session, current_user.role
         )
 
         if not updated_user:

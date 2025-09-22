@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.config import settings
+from app.constants import BOOTSTRAP_USER_EMAIL
 from app.db import get_db_session
 from app.models import User, UserRole
 
@@ -301,7 +302,7 @@ async def get_current_user_or_first_admin(
             # Return a dummy admin user for the first registration
             return User(
                 id=uuid4(),
-                email="system@yeetflow.local",
+                email=BOOTSTRAP_USER_EMAIL,
                 name="System Admin",
                 role=UserRole.ADMIN,
             )
@@ -358,7 +359,7 @@ async def require_admin_or_first_user(
 ) -> User:
     """Require admin role, or allow first user registration."""
     # If this is the dummy admin user (first registration), allow it
-    if current_user.email == "system@yeetflow.local":
+    if current_user.email == BOOTSTRAP_USER_EMAIL:
         return current_user
 
     # Otherwise, check for admin role

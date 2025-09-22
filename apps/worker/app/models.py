@@ -139,6 +139,7 @@ class Run(RunBase, table=True):
 
     __table_args__ = (
         Index("ix_run_user_created_at_id", "user_id", "created_at", "id"),
+        Index("idx_runs_user_id_created_at", "user_id", "created_at"),
     )
 
 

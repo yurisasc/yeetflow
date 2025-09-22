@@ -4,12 +4,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.constants import MAX_RUN_LIST_LIMIT
 from app.models import Event, Run
 from app.models import Session as SessionModel
 
 logger = logging.getLogger(__name__)
-
-MAX_RUN_LIST_LIMIT = 200
 
 
 class RunRepository:

@@ -95,6 +95,9 @@ def upgrade() -> None:
             "ix_run_user_created_at_id", ["user_id", "created_at", "id"], unique=False
         )
         batch_op.create_index(batch_op.f("ix_run_user_id"), ["user_id"], unique=False)
+        batch_op.create_index(
+            "idx_runs_user_id_created_at", ["user_id", "created_at"], unique=False
+        )
 
     op.create_table(
         "event",
@@ -163,6 +166,7 @@ def downgrade() -> None:
     with op.batch_alter_table("run", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_run_user_id"))
         batch_op.drop_index("ix_run_user_created_at_id")
+        batch_op.drop_index("idx_runs_user_id_created_at")
         batch_op.drop_index(batch_op.f("ix_run_flow_id"))
 
     op.drop_table("run")

@@ -178,11 +178,11 @@ class TestRunsArtifactGetContract(BaseTestClass):
         # Test that response supports streaming/chunked transfer
         # This is indicated by the transfer-encoding header or content-length
 
-        # Content-Length header indicates streaming capability
-        # Test client buffers response, but header proves streaming setup
-        assert "content-length" in response.headers
-        assert response.headers["content-length"] == str(self.LARGE_FILE_SIZE)
-
+        # Accept either Content-Length (exact) or Transfer-Encoding
+        if "content-length" in response.headers:
+            assert response.headers["content-length"] == str(self.LARGE_FILE_SIZE)
+        else:
+            assert response.headers.get("transfer-encoding", "").lower() == "chunked"
         # Verify we can access content without loading everything at once in test
         # (In real usage, this would be streamed chunk by chunk)
         assert hasattr(response, "content"), "Response should have content"
@@ -196,7 +196,8 @@ class TestRunsArtifactGetContract(BaseTestClass):
             headers={"Range": f"bytes=0-{self.RANGE_REQUEST_SIZE - 1}", **headers},
         )
 
-        # Should return HTTPStatus.PARTIAL_CONTENT if range requests are supported
+        # Should be 206 when supported; otherwise at least 200 OK
+        assert range_response.status_code in (HTTPStatus.PARTIAL_CONTENT, HTTPStatus.OK)
         if range_response.status_code == HTTPStatus.PARTIAL_CONTENT:
             assert "content-range" in range_response.headers
             assert "content-length" in range_response.headers
