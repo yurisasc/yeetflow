@@ -26,8 +26,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # JWT token settings
 SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes or 30
+REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days or 7
 
 
 def _raise_unauthorized(detail: str) -> None:
@@ -91,6 +91,11 @@ def create_access_token(
 ) -> str:
     """Create a JWT access token."""
     to_encode = data.copy()
+    # Normalize common claims
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+    if "role" in to_encode and isinstance(to_encode["role"], UserRole):
+        to_encode["role"] = to_encode["role"].value
     if expires_delta:
         expire = datetime.now(UTC) + expires_delta
     else:
@@ -110,6 +115,10 @@ def create_access_token(
 def create_refresh_token(data: dict[str, Any]) -> str:
     """Create a JWT refresh token with longer expiry."""
     to_encode = data.copy()
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+    if "role" in to_encode and isinstance(to_encode["role"], UserRole):
+        to_encode["role"] = to_encode["role"].value
     expire = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update(
         {
@@ -130,7 +139,7 @@ def verify_token(token: str) -> TokenData:
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM],
-            options={"require": ["exp", "iat"]},
+            options={"require": ["exp", "iat", "type", "jti"]},
             leeway=5,  # seconds
         )
 
@@ -184,7 +193,7 @@ def verify_refresh_token(token: str) -> TokenData:
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM],
-            options={"require": ["exp", "iat"]},
+            options={"require": ["exp", "iat", "type", "jti"]},
             leeway=5,  # seconds
         )
 
@@ -317,6 +326,7 @@ async def get_current_user_or_first_admin(
                 email=BOOTSTRAP_USER_EMAIL,
                 name="System Admin",
                 role=UserRole.ADMIN,
+                password_hash="<placeholder>",  # noqa: S106
             )
 
         # If users exist, require normal authentication

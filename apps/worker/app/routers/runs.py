@@ -56,8 +56,8 @@ async def _ensure_run_access(
     run = await service.get_run(run_id, session)
     if run.user_id != user.id and user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN,
-            detail="Not authorized to access this run",
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Run not found",
         )
     return run
 

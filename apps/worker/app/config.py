@@ -12,6 +12,8 @@ DEFAULT_HOST = "0.0.0.0"  # noqa: S104
 DEFAULT_PORT = 8000
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_SECRET_KEY = "dev-secret-key-change-in-production"  # noqa: S105
+DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
+DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS = 7
 DEFAULT_RETRY_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BASE_DELAY = 1.0
 DEFAULT_RETRY_MAX_DELAY = 30.0
@@ -62,6 +64,16 @@ class Settings(BaseSettings):
     secret_key: str = Field(
         default=DEFAULT_SECRET_KEY,
         description="Secret key for JWT tokens and encryption",
+    )
+
+    access_token_expire_minutes: int = Field(
+        default=DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
+        description="Access token expiration time in minutes",
+    )
+
+    refresh_token_expire_days: int = Field(
+        default=DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
+        description="Refresh token expiration time in days",
     )
 
     # Retry configuration
@@ -142,6 +154,9 @@ class Settings(BaseSettings):
     )
 
     def model_post_init(self, _) -> None:
+        if not self.secret_key or not self.secret_key.strip():
+            msg = "SECRET_KEY must be set and non-empty"
+            raise ValueError(msg)
         if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
             msg = "SECRET_KEY must be set in production"
             raise ValueError(msg)

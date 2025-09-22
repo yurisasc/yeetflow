@@ -57,6 +57,7 @@ class TestAuthAPI(BaseTestClass):
         # Since users already exist in test setup, this should require admin auth
         response = self.client.post("/api/v1/auth/register", json=user_data)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
 
     def test_register_user_success_with_admin(self):
         """Test successful user registration with admin authentication."""

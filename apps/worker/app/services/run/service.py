@@ -172,14 +172,10 @@ class RunService:
         self, run_id: UUID, session: AsyncSession
     ) -> list[SessionModel]:
         """Get all sessions for a specific run."""
-        # Verify run exists first
-        await self.get_run(run_id, session)
         return await self.repository.get_sessions(session, run_id)
 
     async def get_run_events(self, run_id: UUID, session: AsyncSession) -> list[Event]:
         """Get all events for a specific run."""
-        # Verify run exists first
-        await self.get_run(run_id, session)
         return await self.repository.get_events(session, run_id)
 
     # Private helper methods
