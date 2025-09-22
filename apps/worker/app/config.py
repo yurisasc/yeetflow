@@ -169,16 +169,23 @@ class Settings(BaseSettings):
         if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
             msg = "SECRET_KEY must be set in production; set DEBUG=true for local dev"
             raise ValueError(msg)
-        if not self.debug and self.cors_allow_origins.strip() == "*":
-            msg = "CORS_ALLOW_ORIGINS cannot be '*' in production; set explicit origins"
+        if not self.debug and "*" in normalize_origins(self.cors_allow_origins.strip()):
+            msg = (
+                "CORS_ALLOW_ORIGINS cannot contain '*' in production; "
+                "set explicit origins"
+            )
             raise ValueError(msg)
-        # Also protect Socket.IO CORS in production
-        if not self.debug and self.socketio_cors.strip() == "*":
-            msg = "SOCKETIO_CORS cannot be '*' in production; set explicit origins"
+        if not self.debug and "*" in normalize_origins(self.socketio_cors.strip()):
+            msg = "SOCKETIO_CORS cannot contain '*' in production; set explicit origins"
             raise ValueError(msg)
-        # Optional: forbid empty origins in production
         if not self.debug and not self.cors_allow_origins.strip():
             msg = "CORS_ALLOW_ORIGINS cannot be empty in production"
+            raise ValueError(msg)
+        if self.refresh_token_expire_days * 1440 <= self.access_token_expire_minutes:
+            msg = (
+                "REFRESH_TOKEN_EXPIRE_DAYS must be greater than "
+                "ACCESS_TOKEN_EXPIRE_MINUTES/1440"
+            )
             raise ValueError(msg)
         return self
 
@@ -187,7 +194,18 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-# Helper functions for specific configurations
+def normalize_origins(raw: str) -> str | list[str]:
+    """Normalize CORS origins from comma-separated string.
+
+    Returns "*" if input contains wildcard, otherwise returns sorted list
+    of cleaned origins.
+    """
+    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    if "*" in origins:
+        return "*"
+    return sorted(set(origins))
+
+
 def get_database_url() -> str:
     """Get the database URL, converting SQLite to async format if needed."""
     url = settings.database_url
@@ -222,20 +240,16 @@ def get_retry_config() -> dict:
 def get_socketio_config() -> dict:
     """Get Socket.IO configuration."""
     raw = settings.socketio_cors.strip()
-    origins = (
-        "*"
-        if raw == "*"
-        else sorted({o.strip().rstrip("/") for o in raw.split(",") if o.strip()})
-    )
+    origins = normalize_origins(raw)
     return {"cors_allowed_origins": origins, "cors_enabled": True}
 
 
 def get_cors_config() -> dict:
     """Get CORS configuration for the API."""
     raw = settings.cors_allow_origins.strip()
-    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    origins = normalize_origins(raw)
 
-    if "*" in origins:
+    if origins == "*":
         return {
             "allow_origins": ["*"],
             "allow_credentials": False,
@@ -257,6 +271,7 @@ def get_cors_config() -> dict:
             "expose_headers": ["WWW-Authenticate", "Authorization"],
             "max_age": 86400,
         }
+
     origins = sorted(set(origins))
     return {
         "allow_origins": origins,
