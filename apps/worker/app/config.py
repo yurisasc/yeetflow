@@ -3,7 +3,7 @@ Centralized configuration management for the YeetFlow worker application.
 All environment variables are loaded and validated here.
 """
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Default configuration values
@@ -12,6 +12,7 @@ DEFAULT_HOST = "0.0.0.0"  # noqa: S104
 DEFAULT_PORT = 8000
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_SECRET_KEY = "dev-secret-key-change-in-production"  # noqa: S105
+DEFAULT_SECRET_KEY_MIN_LENGTH = 32
 DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
 DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS = 7
 DEFAULT_RETRY_MAX_ATTEMPTS = 3
@@ -68,14 +69,14 @@ class Settings(BaseSettings):
 
     access_token_expire_minutes: int = Field(
         ge=1,
-        le=1440,  # <= 24h
+        le=120,  # <= 2h
         default=DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
         description="Access token expiration time in minutes",
     )
 
     refresh_token_expire_days: int = Field(
         ge=1,
-        le=90,  # <= 90 days
+        le=30,  # <= 30 days
         default=DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
         description="Refresh token expiration time in days",
     )
@@ -150,35 +151,6 @@ class Settings(BaseSettings):
         ),
     )
 
-    @field_validator("cors_allow_origins")
-    @classmethod
-    def validate_cors_allow_origins(cls, v: str, info) -> str:
-        """Validate CORS origins configuration."""
-        # Get debug flag from the validation context
-        debug = info.data.get("debug", False)
-
-        # Allow wildcard only in debug mode
-        if not debug and v.strip() == "*":
-            msg = (
-                "CORS wildcard '*' is not allowed in production. "
-                "Please specify explicit origins (comma-separated) "
-                "for CORS_ALLOW_ORIGINS."
-            )
-            raise ValueError(msg)
-
-        # For comma-separated values, check if any is wildcard
-        if not debug:
-            origins = [origin.strip() for origin in v.split(",")]
-            if "*" in origins:
-                msg = (
-                    "CORS wildcard '*' is not allowed in production. "
-                    "Please specify explicit origins (comma-separated) "
-                    "for CORS_ALLOW_ORIGINS."
-                )
-                raise ValueError(msg)
-
-        return v
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -190,8 +162,14 @@ class Settings(BaseSettings):
         if not self.secret_key or not self.secret_key.strip():
             msg = "SECRET_KEY must be set and non-empty"
             raise ValueError(msg)
+        if not self.debug and len(self.secret_key) < DEFAULT_SECRET_KEY_MIN_LENGTH:
+            msg = "SECRET_KEY must be at least 32 characters in production"
+            raise ValueError(msg)
         if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
-            msg = "SECRET_KEY must be set in production"
+            msg = "SECRET_KEY must be set in production; set DEBUG=true for local dev"
+            raise ValueError(msg)
+        if not self.debug and self.cors_allow_origins.strip() == "*":
+            msg = "CORS_ALLOW_ORIGINS cannot be '*' in production; set explicit origins"
             raise ValueError(msg)
 
 
