@@ -219,9 +219,11 @@ def get_socketio_config() -> dict:
 def get_cors_config() -> dict:
     """Get CORS configuration for the API."""
     raw = settings.cors_allow_origins.strip()
-    if raw == "*":
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    if "*" in origins:
         return {
             "allow_origins": ["*"],
+            "allow_credentials": False,
             "allow_methods": [
                 "GET",
                 "POST",
@@ -240,7 +242,7 @@ def get_cors_config() -> dict:
             "expose_headers": ["WWW-Authenticate", "Authorization"],
             "max_age": 86400,
         }
-    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    origins = sorted(set(origins))
     return {
         "allow_origins": origins,
         "allow_credentials": True,
