@@ -84,8 +84,11 @@ async def create_run(
             detail="Access denied to flow",
         ) from e
     except IntegrityError as e:
-        # Handle foreign key constraint violations (e.g., invalid flow_id)
-        if "FOREIGN KEY constraint failed" in str(e):
+        # Handle FK violations across dialects
+        orig = getattr(e, "orig", None)
+        msg = str(e).lower()
+        is_fk = "foreign key" in msg or getattr(orig, "pgcode", "") == "23503"
+        if is_fk:
             raise HTTPException(
                 status_code=HTTPStatus.BAD_REQUEST,
                 detail="Invalid flow_id: flow does not exist",

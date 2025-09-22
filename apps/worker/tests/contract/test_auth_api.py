@@ -145,6 +145,7 @@ class TestAuthAPI(BaseTestClass):
         """Test getting current user without authentication."""
         response = self.client.get("/api/v1/auth/me")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
 
     def test_list_users_admin_only(self):
         """Test that only admins can list users."""

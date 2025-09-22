@@ -126,7 +126,13 @@ def verify_token(token: str) -> TokenData:
     """Verify and decode a JWT access token."""
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"require": ["exp", "iat"]},
+            leeway=5,  # seconds
+        )
 
         # Check if this is actually an access token
         token_type = payload.get("type")
@@ -174,7 +180,13 @@ def verify_token(token: str) -> TokenData:
 def verify_refresh_token(token: str) -> TokenData:
     """Verify and decode a refresh JWT token."""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"require": ["exp", "iat"]},
+            leeway=5,  # seconds
+        )
 
         # Check if this is actually a refresh token
         token_type = payload.get("type")

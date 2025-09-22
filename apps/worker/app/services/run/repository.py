@@ -34,12 +34,12 @@ class RunRepository:
         return run
 
     async def list_runs(
-        self, session: AsyncSession, skip: int = 0, limit: int = 100
+        self, session: AsyncSession, skip: int | None = 0, limit: int | None = 100
     ) -> list[Run]:
         """List runs with pagination."""
         # Normalize pagination params
-        skip = max(0, int(skip))
-        limit = max(1, min(int(limit), MAX_RUN_LIST_LIMIT))
+        skip = max(0, int(skip or 0))
+        limit = max(1, min(int(limit or 100), MAX_RUN_LIST_LIMIT))
         result = await session.execute(
             select(Run)
             .order_by(Run.created_at.desc(), Run.id.desc())
@@ -49,13 +49,17 @@ class RunRepository:
         return list(result.scalars().all())
 
     async def list_runs_for_user(
-        self, session: AsyncSession, user_id: UUID, skip: int = 0, limit: int = 100
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        skip: int | None = 0,
+        limit: int | None = 100,
     ) -> list[Run]:
         """List runs for a specific user with pagination."""
         # Normalize pagination params
-        skip = max(0, int(skip))
+        skip = max(0, int(skip or 0))
         # Enforce a server-side cap to avoid unbounded fetches
-        limit = max(1, min(int(limit), MAX_RUN_LIST_LIMIT))
+        limit = max(1, min(int(limit or 100), MAX_RUN_LIST_LIMIT))
         result = await session.execute(
             select(Run)
             .where(Run.user_id == user_id)

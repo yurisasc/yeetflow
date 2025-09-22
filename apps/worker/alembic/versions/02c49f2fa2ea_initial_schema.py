@@ -180,3 +180,11 @@ def downgrade() -> None:
 
     op.drop_table("user")
     # ### end Alembic commands ###
+
+    # Clean up enums on Postgres
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP TYPE IF EXISTS userrole")
+        op.execute("DROP TYPE IF EXISTS runstatus")
+        op.execute("DROP TYPE IF EXISTS eventtype")
+        op.execute("DROP TYPE IF EXISTS sessionstatus")
