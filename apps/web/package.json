@@ -11,7 +11,14 @@
     "lint:staged": "eslint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "format:staged": "prettier --write ."
+    "format:staged": "prettier --write .",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:auth": "playwright test apps/web/tests/e2e/auth*",
+    "test:flows": "playwright test apps/web/tests/e2e/flows*",
+    "test:runs": "playwright test apps/web/tests/e2e/runs*",
+    "test:signup": "playwright test apps/web/tests/e2e/signup*"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -52,7 +59,7 @@
     "geist": "latest",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
-    "next": "14.2.16",
+    "next": "15.5.3",
     "next-themes": "^0.4.6",
     "react": "^18",
     "react-day-picker": "9.8.0",

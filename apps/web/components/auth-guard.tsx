@@ -4,7 +4,7 @@ import type React from 'react';
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { isAuthenticated } from '@/lib/auth';
+import { isAuthenticated, getAuthHeader } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
@@ -17,15 +17,37 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       if (!isAuthenticated()) {
         // Store the attempted URL for redirect after login
         if (pathname && pathname !== '/login') {
           sessionStorage.setItem('yeetflow_redirect', pathname);
         }
         router.push('/unauthorized');
-      } else {
+        return;
+      }
+
+      try {
+        // Validate token with backend
+        const response = await fetch('/api/worker/api/v1/auth/me', {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) {
+          // Token is invalid or expired
+          sessionStorage.removeItem('yeetflow_token');
+          if (pathname && pathname !== '/login') {
+            sessionStorage.setItem('yeetflow_redirect', pathname);
+          }
+          router.push('/unauthorized');
+          return;
+        }
+
         setIsLoading(false);
+      } catch (error) {
+        // Network error or other issues
+        console.error('Auth check failed:', error);
+        router.push('/unauthorized');
       }
     };
 
