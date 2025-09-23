@@ -18,8 +18,8 @@
       "pnpm -C apps/worker lint:staged --"
     ],
     "apps/web/**/*.{ts,tsx}": [
-      "pnpm -C apps/web format:staged --",
-      "pnpm -C apps/web lint:staged --"
+      "cd apps/web && prettier --write",
+      "cd apps/web && eslint --fix"
     ]
   },
   "devDependencies": {
