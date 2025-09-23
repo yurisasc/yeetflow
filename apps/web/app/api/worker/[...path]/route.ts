@@ -5,41 +5,41 @@ const WORKER_API_TOKEN = process.env.WORKER_API_TOKEN;
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
+  { params }: { params: { path: string[] } },
 ) {
-  const { path } = await params;
+  const { path } = params;
   return proxyRequest(request, path);
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
+  { params }: { params: { path: string[] } },
 ) {
-  const { path } = await params;
+  const { path } = params;
   return proxyRequest(request, path);
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
+  { params }: { params: { path: string[] } },
 ) {
-  const { path } = await params;
+  const { path } = params;
   return proxyRequest(request, path);
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
+  { params }: { params: { path: string[] } },
 ) {
-  const { path } = await params;
+  const { path } = params;
   return proxyRequest(request, path);
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
+  { params }: { params: { path: string[] } },
 ) {
-  const { path } = await params;
+  const { path } = params;
   return proxyRequest(request, path);
 }
 

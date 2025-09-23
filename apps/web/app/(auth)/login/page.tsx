@@ -17,7 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Zap } from 'lucide-react';
-import { setToken } from '@/lib/auth';
+import { setToken, setRefreshToken } from '@/lib/auth';
+import { useCSRF } from '@/lib/csrf';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { token: csrfToken } = useCSRF();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +38,10 @@ export default function LoginPage() {
       formData.append('grant_type', 'password');
       formData.append('username', email);
       formData.append('password', password);
+      // Include CSRF token for future server-side validation
+      if (csrfToken) {
+        formData.append('csrf_token', csrfToken);
+      }
 
       const response = await fetch('/api/worker/api/v1/auth/login', {
         method: 'POST',
@@ -52,6 +58,9 @@ export default function LoginPage() {
 
       const data = await response.json();
       setToken(data.access_token);
+      if (data.refresh_token) {
+        setRefreshToken(data.refresh_token);
+      }
       router.push('/flows');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
