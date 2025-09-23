@@ -16,54 +16,71 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Zap } from 'lucide-react';
-import { setToken, setRefreshToken } from '@/lib/auth';
-import { useCSRF } from '@/lib/csrf';
+import { Loader2, Zap, UserPlus } from 'lucide-react';
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { token: csrfToken } = useCSRF();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    try {
-      const formData = new URLSearchParams();
-      formData.append('grant_type', 'password');
-      formData.append('username', email);
-      formData.append('password', password);
-      // Include CSRF token for future server-side validation
-      if (csrfToken) {
-        formData.append('csrf_token', csrfToken);
-      }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
 
-      const response = await fetch('/api/worker/api/v1/auth/login', {
+    try {
+      const response = await fetch('/api/worker/api/v1/auth/register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: formData.toString(),
+        body: JSON.stringify({
+          email,
+          name,
+          password,
+        }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.detail || 'Authentication failed');
+        throw new Error(data.detail || 'Registration failed');
       }
 
       const data = await response.json();
-      setToken(data.access_token);
-      if (data.refresh_token) {
-        setRefreshToken(data.refresh_token);
+
+      // Auto-login after successful registration
+      const loginResponse = await fetch('/api/worker/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'password',
+          username: email,
+          password: password,
+        }),
+      });
+
+      if (loginResponse.ok) {
+        const loginData = await loginResponse.json();
+        localStorage.setItem('yeetflow_token', loginData.access_token);
+        router.push('/flows');
+      } else {
+        // Registration successful but login failed, redirect to login
+        router.push('/login');
       }
-      router.push('/flows');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -81,26 +98,40 @@ export default function LoginPage() {
             <h1 className='text-2xl font-bold text-foreground'>YeetFlow</h1>
           </div>
           <p className='text-muted-foreground'>
-            Automation platform with human-in-the-loop
+            Create your account to start automating
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Signup Card */}
         <Card className='border-border bg-card'>
           <CardHeader className='space-y-1'>
             <CardTitle className='text-xl text-center'>
-              Sign in to your account
+              Create your account
             </CardTitle>
             <CardDescription className='text-center'>
-              Enter your credentials to access your flows
+              Join YeetFlow and start building automation workflows
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form
               onSubmit={handleSubmit}
               className='space-y-4'
-              data-testid='login-form'
+              data-testid='signup-form'
             >
+              <div className='space-y-2'>
+                <Label htmlFor='name'>Full Name</Label>
+                <Input
+                  id='name'
+                  type='text'
+                  placeholder='Enter your full name'
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className='bg-input border-border'
+                  data-testid='name-input'
+                />
+              </div>
+
               <div className='space-y-2'>
                 <Label htmlFor='email'>Email</Label>
                 <Input
@@ -120,7 +151,7 @@ export default function LoginPage() {
                 <Input
                   id='password'
                   type='password'
-                  placeholder='Enter your password'
+                  placeholder='Create a password'
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -129,8 +160,22 @@ export default function LoginPage() {
                 />
               </div>
 
+              <div className='space-y-2'>
+                <Label htmlFor='confirmPassword'>Confirm Password</Label>
+                <Input
+                  id='confirmPassword'
+                  type='password'
+                  placeholder='Confirm your password'
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className='bg-input border-border'
+                  data-testid='confirm-password-input'
+                />
+              </div>
+
               {error && (
-                <Alert variant='destructive' data-testid='login-error'>
+                <Alert variant='destructive' data-testid='signup-error'>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -139,25 +184,28 @@ export default function LoginPage() {
                 type='submit'
                 className='w-full'
                 disabled={isLoading}
-                data-testid='login-submit'
+                data-testid='signup-submit'
               >
                 {isLoading ? (
                   <>
                     <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                    Signing in...
+                    Creating account...
                   </>
                 ) : (
-                  'Sign in'
+                  <>
+                    <UserPlus className='mr-2 h-4 w-4' />
+                    Create account
+                  </>
                 )}
               </Button>
             </form>
 
-            <div className='mt-4 text-center space-y-2'>
+            <div className='mt-4 text-center'>
               <Link
-                href='/signup'
+                href='/login'
                 className='text-sm text-primary hover:underline'
               >
-                Don't have an account? Sign up
+                Already have an account? Sign in
               </Link>
             </div>
           </CardContent>

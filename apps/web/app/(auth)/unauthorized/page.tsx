@@ -43,7 +43,7 @@ export default function UnauthorizedPage() {
               </Button>
             </Link>
 
-            <div className='text-center text-sm text-muted-foreground'>
+            <div className='mt-4 text-center text-sm text-muted-foreground'>
               Don't have an account? Contact your administrator.
             </div>
           </CardContent>

@@ -7,35 +7,40 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  return proxyRequest(request, params.path);
+  const { path } = params;
+  return proxyRequest(request, path);
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  return proxyRequest(request, params.path);
+  const { path } = params;
+  return proxyRequest(request, path);
 }
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  return proxyRequest(request, params.path);
+  const { path } = params;
+  return proxyRequest(request, path);
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  return proxyRequest(request, params.path);
+  const { path } = params;
+  return proxyRequest(request, path);
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { path: string[] } },
 ) {
-  return proxyRequest(request, params.path);
+  const { path } = params;
+  return proxyRequest(request, path);
 }
 
 async function proxyRequest(
@@ -63,8 +68,9 @@ async function proxyRequest(
       }
     }
 
-    // Add API token if available
-    if (WORKER_API_TOKEN) {
+    // Add API token only if no user Authorization header (T016)
+    const existingAuth = request.headers.get('authorization');
+    if (!existingAuth && WORKER_API_TOKEN) {
       headers.set('Authorization', `Bearer ${WORKER_API_TOKEN}`);
     }
 

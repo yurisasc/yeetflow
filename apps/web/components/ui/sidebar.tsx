@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getCurrentUser, logout, isAdmin } from '@/lib/auth';
+import { SecurityUtils } from '@/lib/security';
 import {
   Zap,
   Workflow,
@@ -137,7 +138,7 @@ export function Sidebar({ className }: SidebarProps) {
                 <div className='flex-1 text-left'>
                   <div className='flex items-center space-x-2'>
                     <p className='text-sm font-medium text-foreground truncate'>
-                      {user?.name || 'Demo User'}
+                      {SecurityUtils.sanitizeInput(user?.name || 'Demo User')}
                     </p>
                     <Badge
                       variant={user?.role === 'admin' ? 'default' : 'secondary'}
@@ -147,7 +148,7 @@ export function Sidebar({ className }: SidebarProps) {
                     </Badge>
                   </div>
                   <p className='text-xs text-muted-foreground truncate'>
-                    {user?.email || 'demo@yeetflow.com'}
+                    {SecurityUtils.sanitizeInput(user?.email || 'demo@yeetflow.com')}
                   </p>
                 </div>
                 <ChevronDown className='w-4 h-4 text-muted-foreground' />
