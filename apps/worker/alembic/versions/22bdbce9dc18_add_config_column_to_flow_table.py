@@ -38,17 +38,26 @@ def upgrade() -> None:
     with op.batch_alter_table("flow", schema=None) as batch_op:
         batch_op.alter_column("config", existing_type=sa.JSON(), nullable=False)
 
+    # 4) Add indexes for performance on typical queries
+    # Index for admin listing: flows ordered by created_at desc, id desc
+    op.create_index("ix_flow_created_at_id", "flow", ["created_at", "id"])
+
+    # Index for user listing: flows by user ordered by created_at desc, id desc
+    op.create_index(
+        "ix_flow_created_by_created_at_id", "flow", ["created_by", "created_at", "id"]
+    )
+
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    with op.batch_alter_table("run", schema=None) as batch_op:
-        batch_op.alter_column(
-            "status",
-            existing_type=sa.VARCHAR(length=14),
-            server_default=sa.text("'pending'"),
-            existing_nullable=False,
-        )
+    # Remove indexes added in upgrade
+    op.drop_index("ix_flow_created_by_created_at_id", table_name="flow")
+    op.drop_index("ix_flow_created_at_id", table_name="flow")
+
+    # Remove config column
+    with op.batch_alter_table("flow", schema=None) as batch_op:
+        batch_op.drop_column("config")
 
     # ### end Alembic commands ###

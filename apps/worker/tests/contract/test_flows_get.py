@@ -157,7 +157,30 @@ class TestFlowsGetContract(BaseTestClass):
         assert response.status_code == HTTPStatus.OK
         data = response.json()
 
-        # Default limit should be 100, but we should have >= TEST_USER_FLOW_COUNT flows
+        # Default limit should return at least the user's visible flows
         assert "flows" in data
         assert isinstance(data["flows"], list)
         assert len(data["flows"]) >= TEST_USER_FLOW_COUNT
+
+    def test_get_flows_requires_auth(self):
+        """GET /flows without auth should return 401."""
+        response = self.client.get(f"{self.API_PREFIX}/flows")
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_get_flows_invalid_pagination_params_return_422(self):
+        """Invalid skip/limit should yield 422."""
+        headers = self.get_user_auth_headers()
+
+        invalid_queries = [
+            "?skip=-1",
+            "?limit=0",
+            "?skip=-5&limit=2",
+            "?skip=0&limit=-2",
+            "?skip=abc",
+            "?limit=xyz",
+        ]
+
+        for q in invalid_queries:
+            resp = self.client.get(f"{self.API_PREFIX}/flows{q}", headers=headers)
+            msg = f"Query {q} should be 422"
+            assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, msg
