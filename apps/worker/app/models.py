@@ -209,6 +209,11 @@ class FlowRead(PydanticBaseModel):
     updated_at: datetime
 
 
+class FlowListResponse(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    flows: list[FlowRead]
+
+
 class RunCreate(PydanticBaseModel):
     model_config = ConfigDict(from_attributes=True)
     flow_id: UUID
