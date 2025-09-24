@@ -56,7 +56,7 @@ class TestRunsPostContract(BaseTestClass):
         assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert "detail" in data
-        assert "does not exist" in data["detail"]
+        assert "not found" in data["detail"]
 
     def test_post_runs_creates_browser_session(self):
         """Test that POST /runs creates a browser session."""

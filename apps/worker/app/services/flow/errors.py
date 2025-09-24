@@ -3,7 +3,7 @@ class FlowError(Exception):
 
 
 class FlowNotFoundError(FlowError):
-    """Raised when a requested flow does not exist."""
+    """Raised when a requested flow does not exist at repository/service level."""
 
     def __init__(self, flow_id: str) -> None:
         super().__init__(f"Flow {flow_id} not found")
@@ -14,10 +14,3 @@ class FlowAccessDeniedError(FlowError):
 
     def __init__(self, flow_id: str) -> None:
         super().__init__(f"Access denied to flow {flow_id}")
-
-
-class InvalidFlowError(FlowError):
-    """Raised when the specified flow_id does not exist."""
-
-    def __init__(self, flow_id: str) -> None:
-        super().__init__(f"Flow {flow_id} does not exist")
