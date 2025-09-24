@@ -113,6 +113,11 @@ class Flow(FlowBase, table=True):
     user: User | None = Relationship(back_populates="flows")
     runs: list["Run"] = Relationship(back_populates="flow", cascade_delete=True)
 
+    __table_args__ = (
+        Index("ix_flow_created_at_id", "created_at", "id"),
+        Index("ix_flow_created_by_created_at_id", "created_by", "created_at", "id"),
+    )
+
 
 class Run(RunBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -195,7 +200,7 @@ class FlowCreate(PydanticBaseModel):
     key: str
     name: str
     description: str | None = None
-    config: dict = PydField(default_factory=dict)
+    config: dict[str, Any] = PydField(default_factory=dict)
 
 
 class FlowRead(PydanticBaseModel):
@@ -204,9 +209,15 @@ class FlowRead(PydanticBaseModel):
     key: str
     name: str
     description: str | None = None
+    config: dict[str, Any] = PydField(default_factory=dict)
     created_by: UUID
     created_at: datetime
     updated_at: datetime
+
+
+class FlowListResponse(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    flows: list[FlowRead]
 
 
 class RunCreate(PydanticBaseModel):

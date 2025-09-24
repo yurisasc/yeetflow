@@ -18,9 +18,8 @@ from app.models import (
     User,
     UserRole,
 )
+from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
-    FlowAccessDeniedError,
-    InvalidFlowError,
     MissingSessionURLError,
     SessionCreationFailedError,
 )
@@ -46,7 +45,7 @@ async def create_run(
     service = RunService()
     try:
         return await service.create_run_with_user(request, current_user, session)
-    except InvalidFlowError as e:
+    except FlowNotFoundError as e:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail=str(e),

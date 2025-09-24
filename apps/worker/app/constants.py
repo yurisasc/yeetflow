@@ -9,6 +9,7 @@ API_VERSION = "0.1.0"
 
 # Pagination Configuration
 MAX_RUN_LIST_LIMIT = 200
+MAX_FLOW_LIST_LIMIT = 200
 
 # Authentication Configuration
 BOOTSTRAP_USER_EMAIL = "system@yeetflow.local"

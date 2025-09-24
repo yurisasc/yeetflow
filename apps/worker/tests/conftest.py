@@ -223,6 +223,22 @@ class BaseTestClass:
                     description="A flow with multiple human interaction points",
                     created_by=self.test_user.id,
                 ),
+                # Add a flow owned by admin to test visibility differences
+                Flow(
+                    id=UUID("550e8400-e29b-41d4-a716-446655440006"),
+                    key="admin-only-flow",
+                    name="Admin Only Flow",
+                    description="A flow only visible to admins",
+                    created_by=self.test_admin.id,
+                ),
+                # Add another admin-owned flow for access control testing
+                Flow(
+                    id=UUID("550e8400-e29b-41d4-a716-446655440007"),
+                    key="admin-secret-flow",
+                    name="Admin Secret Flow",
+                    description="Another flow only admins can access",
+                    created_by=self.test_admin.id,
+                ),
             ]
 
             for flow in flows:

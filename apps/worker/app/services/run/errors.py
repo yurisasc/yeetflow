@@ -21,17 +21,3 @@ class RunNotFoundError(RunError):
 
     def __init__(self, run_id: str) -> None:
         super().__init__(f"Run {run_id} not found")
-
-
-class InvalidFlowError(RunError):
-    """Raised when the specified flow_id does not exist."""
-
-    def __init__(self, flow_id: str) -> None:
-        super().__init__(f"Flow {flow_id} does not exist")
-
-
-class FlowAccessDeniedError(RunError):
-    """Raised when the user does not have access to the specified flow."""
-
-    def __init__(self, flow_id: str) -> None:
-        super().__init__(f"Access denied to flow {flow_id}")

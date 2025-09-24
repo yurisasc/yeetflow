@@ -18,9 +18,8 @@ from app.models import (
     UserRole,
 )
 from app.models import Session as SessionModel
+from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
-    FlowAccessDeniedError,
-    InvalidFlowError,
     MissingSessionURLError,
     RunNotFoundError,
     SessionCreationFailedError,
@@ -201,7 +200,7 @@ class RunService:
         flow = flow_result.scalar_one_or_none()
 
         if not flow:
-            raise InvalidFlowError(str(flow_id))
+            raise FlowNotFoundError(str(flow_id))
 
         # Check if user has access to the flow
         # For now, users can access flows they created or if they're admin

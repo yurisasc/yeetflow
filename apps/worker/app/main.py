@@ -7,7 +7,7 @@ from app.constants import API_TITLE, API_V1_PREFIX, API_VERSION, SERVICE_NAME
 from app.db import engine, init_db
 from app.middleware.auth import AuthMiddleware
 from app.middleware.auth import CORSMiddleware as WorkerCORSMiddleware
-from app.routers import artifacts, auth, runs
+from app.routers import artifacts, auth, flows, runs
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ app.openapi_tags = [
     {"name": "auth", "description": "Authentication and user management"},
     {"name": "runs", "description": "Automation run management"},
     {"name": "artifacts", "description": "Run artifact management"},
+    {"name": "flows", "description": "Automation flow management"},
 ]
 
 # Add middleware
@@ -46,6 +47,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(runs.router, prefix=API_V1_PREFIX, tags=["runs"])
 app.include_router(artifacts.router, prefix=API_V1_PREFIX, tags=["artifacts"])
 app.include_router(auth.router, prefix=API_V1_PREFIX, tags=["auth"])
+app.include_router(flows.router, prefix=API_V1_PREFIX, tags=["flows"])
 
 
 @app.get("/health")
