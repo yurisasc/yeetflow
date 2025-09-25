@@ -82,9 +82,16 @@ export class SecurityUtils {
     
     try {
       // Validate each part is base64url encoded
-      parts.forEach(part => {
-        const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-        atob(base64);
+      parts.forEach((part) => {
+        const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+        const paddingLength = (4 - (normalized.length % 4)) % 4;
+        const padded = normalized + '='.repeat(paddingLength);
+
+        if (typeof atob === 'function') {
+          atob(padded);
+        } else {
+          Buffer.from(padded, 'base64');
+        }
       });
       return true;
     } catch {

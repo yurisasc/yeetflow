@@ -33,6 +33,10 @@ export default function FlowsPage() {
   const [filteredFlows, setFilteredFlows] = useState<Flow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [startingFlowIds, setStartingFlowIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [startFlowError, setStartFlowError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,14 +51,14 @@ export default function FlowsPage() {
           ...getAuthHeader(),
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch flows');
       }
-      
+
       const data = await response.json();
       const flowsData = data.flows || [];
-      
+
       const mappedFlows = flowsData.map((flow: any) => ({
         id: flow.id,
         name: flow.name,
@@ -65,7 +69,7 @@ export default function FlowsPage() {
         updated_at: flow.updated_at,
         config: flow.config || {},
       }));
-      
+
       setFlows(mappedFlows);
       setFilteredFlows(mappedFlows);
     } catch (error) {
@@ -90,6 +94,12 @@ export default function FlowsPage() {
   }, [flows, searchQuery]);
 
   const handleStartFlow = async (flowId: string) => {
+    if (startingFlowIds.has(flowId)) {
+      return;
+    }
+
+    setStartFlowError(null);
+    setStartingFlowIds((prev) => new Set(prev).add(flowId));
     try {
       const response = await fetch('/api/worker/api/v1/runs', {
         method: 'POST',
@@ -99,20 +109,38 @@ export default function FlowsPage() {
         },
         body: JSON.stringify({ flow_id: flowId }),
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to create run');
+        let message = 'Failed to create run';
+        try {
+          const errorBody = await response.json();
+          message = errorBody?.detail ?? message;
+        } catch {
+          // no-op: fallback to default message
+        }
+
+        throw new Error(message);
       }
-      
+
       const data = await response.json();
+      setStartFlowError(null);
       router.push(`/runs/${data.id}`);
     } catch (error) {
       console.error('Error starting flow:', error);
+      const message =
+        error instanceof Error ? error.message : 'Failed to create run';
+      setStartFlowError(message);
+    } finally {
+      setStartingFlowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(flowId);
+        return next;
+      });
     }
   };
 
   return (
-    <div className='min-h-screen bg-background' data-testid="flows-list">
+    <div className='min-h-screen bg-background' data-testid='flows-list'>
       {/* Header */}
       <div className='border-b border-border bg-card/50'>
         <div className='container mx-auto px-6 py-6'>
@@ -138,6 +166,16 @@ export default function FlowsPage() {
 
       {/* Content */}
       <div className='container mx-auto px-6 py-8'>
+        {startFlowError && (
+          <div
+            data-testid='start-flow-error'
+            className='mb-6 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive'
+            role='alert'
+          >
+            {startFlowError}
+          </div>
+        )}
+
         {isLoading ? (
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
             {Array.from({ length: 6 }).map((_, i) => (
@@ -177,7 +215,7 @@ export default function FlowsPage() {
               <Card
                 key={flow.id}
                 className='border-border bg-card hover:bg-card/80 transition-colors group'
-                data-testid="flow-card"
+                data-testid='flow-card'
               >
                 <CardHeader className='pb-3'>
                   <div className='flex items-start justify-between'>
@@ -186,18 +224,18 @@ export default function FlowsPage() {
                         <FileText className='w-5 h-5' />
                       </div>
                       <div>
-                        <CardTitle 
+                        <CardTitle
                           className='text-lg text-foreground group-hover:text-primary transition-colors'
-                          data-testid="flow-name"
+                          data-testid='flow-name'
                         >
                           {flow.name}
                         </CardTitle>
                       </div>
                     </div>
                   </div>
-                  <CardDescription 
+                  <CardDescription
                     className='text-muted-foreground leading-relaxed'
-                    data-testid="flow-description"
+                    data-testid='flow-description'
                   >
                     {flow.description}
                   </CardDescription>
@@ -206,11 +244,21 @@ export default function FlowsPage() {
                   <div className='flex items-center justify-end'>
                     <Button
                       onClick={() => handleStartFlow(flow.id)}
-                      className='bg-primary hover:bg-primary/90 text-primary-foreground'
-                      data-testid="start-flow-button"
+                      className='bg-primary hover:bg-primary/90 text-primary-foreground hover:cursor-pointer'
+                      data-testid='start-flow-button'
+                      disabled={startingFlowIds.has(flow.id)}
                     >
-                      <Play className='w-4 h-4 mr-2' />
-                      Start Flow
+                      {startingFlowIds.has(flow.id) ? (
+                        <>
+                          <span className='mr-2 inline-flex h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent align-[-0.125em]' />
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          <Play className='w-4 h-4 mr-2' />
+                          Start Flow
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardContent>
