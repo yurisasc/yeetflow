@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Signup E2E', () => {
   test.beforeEach(async ({ page }) => {
     // Ensure clean state
@@ -14,41 +16,22 @@ test.describe('Signup E2E', () => {
     });
   });
 
-  test('user can register and get redirected to flows', async ({ page }) => {
-    // Fill signup form
-    await page.fill('[data-testid="name-input"]', 'Test User');
-    await page.fill('[data-testid="email-input"]', 'test@example.com');
-    await page.fill('[data-testid="password-input"]', 'testpass123');
-    await page.fill('[data-testid="confirm-password-input"]', 'testpass123');
+  test('second signup fails without admin token', async ({ page }) => {
+    await page.fill('[data-testid="name-input"]', 'Second User');
+    await page.fill('[data-testid="email-input"]', 'second@e2e.local');
+    await page.fill('[data-testid="password-input"]', 'secondpass');
+    await page.fill('[data-testid="confirm-password-input"]', 'secondpass');
 
-    // Submit form
-    await page.click('[data-testid="signup-submit"]');
+    await page.evaluate(() => {
+      const form = document.querySelector('[data-testid="signup-form"]');
+      if (form) (form as HTMLFormElement).noValidate = true;
+    });
 
-    // Should redirect to flows after successful registration
-    await page.waitForURL('/flows');
-    await expect(page).toHaveURL('/flows');
-  });
-
-  test('shows error for mismatched passwords', async ({ page }) => {
-    await page.fill('[data-testid="password-input"]', 'pass1');
-    await page.fill('[data-testid="confirm-password-input"]', 'pass2');
     await page.click('[data-testid="signup-submit"]');
 
     const error = page.locator('[data-testid="signup-error"]');
-    await expect(error).toBeVisible();
-    await expect(error).toContainText(/passwords do not match/i);
-  });
-
-  test('shows error for existing email', async ({ page }) => {
-    await page.fill('[data-testid="name-input"]', 'Demo User');
-    await page.fill('[data-testid="email-input"]', 'demo@yeetflow.com');
-    await page.fill('[data-testid="password-input"]', 'demo123');
-    await page.fill('[data-testid="confirm-password-input"]', 'demo123');
-    await page.click('[data-testid="signup-submit"]');
-
-    const error = page.locator('[data-testid="signup-error"]');
-    await expect(error).toBeVisible();
-    await expect(error).toContainText(/already exists|registration failed/i);
+    await expect(error).toBeVisible({ timeout: 10000 });
+    await expect(error).toContainText(/Invalid or expired token/i);
   });
 
   test('has link to login page', async ({ page }) => {

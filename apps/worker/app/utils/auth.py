@@ -178,7 +178,7 @@ def verify_token(token: str) -> TokenData:
         # Re-raise HTTP exceptions as-is
         raise
     except PyJWTError as e:
-        logger.exception("JWT verification failed")
+        logger.debug("JWT verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -232,7 +232,7 @@ def verify_refresh_token(token: str) -> TokenData:
         # Re-raise HTTP exceptions as-is
         raise
     except PyJWTError as e:
-        logger.exception("Refresh token verification failed")
+        logger.debug("Refresh token verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
@@ -362,7 +362,7 @@ async def get_current_user_or_first_admin(
             )
 
     except PyJWTError as e:
-        logger.exception("JWT verification failed")
+        logger.debug("JWT verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",

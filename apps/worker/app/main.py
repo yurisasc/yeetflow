@@ -1,7 +1,9 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.bootstrap.e2e_data import seed_e2e_flows
 from app.config import settings
 from app.constants import API_TITLE, API_V1_PREFIX, API_VERSION, SERVICE_NAME
 from app.db import engine, init_db
@@ -12,9 +14,11 @@ from app.routers import artifacts, auth, flows, runs
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Manage application lifespan with startup and shutdown events."""
+    """Manage application Lifecycle with startup and shutdown events."""
     # Startup
     await init_db()
+    if os.getenv("E2E_SEED") == "true":
+        await seed_e2e_flows()
     yield
     # Shutdown
     await engine.dispose()
