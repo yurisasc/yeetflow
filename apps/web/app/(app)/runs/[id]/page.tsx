@@ -469,6 +469,7 @@ export default function RunMonitoringPage() {
                     onChange={(e) => setHandoffNotes(e.target.value)}
                     className='mt-1 bg-input border-border'
                     rows={3}
+                    maxLength={280}
                   />
                   <p className='text-xs text-muted-foreground mt-1'>
                     {handoffNotes.length}/280 characters

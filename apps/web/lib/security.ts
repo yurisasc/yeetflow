@@ -24,6 +24,7 @@ export const securityConfig = {
       'connect-src': [
         "'self'",
         process.env.WORKER_BASE_URL || 'http://localhost:8000',
+        ...(process.env.NODE_ENV !== 'production' ? ['ws:', 'wss:'] : []),
       ],
       'frame-ancestors': ["'none'"],
       'form-action': ["'self'"],
@@ -37,7 +38,6 @@ export const securityConfig = {
   headers: {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
-    'X-XSS-Protection': '1; mode=block',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   },
@@ -81,16 +81,23 @@ export class SecurityUtils {
     if (parts.length !== 3) return false;
     
     try {
-      // Validate each part is base64url encoded
-      parts.forEach((part) => {
+      // Validate each part is base64url encoded and ensure header/payload are JSON
+      parts.forEach((part, index) => {
         const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
         const paddingLength = (4 - (normalized.length % 4)) % 4;
         const padded = normalized + '='.repeat(paddingLength);
 
+        let decoded: string;
         if (typeof atob === 'function') {
-          atob(padded);
+          decoded = atob(padded);
+        } else if (typeof Buffer !== 'undefined') {
+          decoded = Buffer.from(padded, 'base64').toString('utf-8');
         } else {
-          Buffer.from(padded, 'base64');
+          throw new Error('No base64 decoder available');
+        }
+
+        if (index < 2) {
+          JSON.parse(decoded);
         }
       });
       return true;

@@ -54,6 +54,7 @@ test.describe('Flows List', () => {
     await flowsRequest;
 
     const request = await flowsRequest;
+    expect(request.method()).toBe('GET');
     expect(request.headers()['authorization']).toBeTruthy();
   });
 
@@ -81,7 +82,6 @@ test.describe('Flows List', () => {
     try {
       await page.locator('[data-testid="start-flow-button"]').first().click();
 
-      await page.waitForURL(new RegExp(`/runs/${mockRunId}$`));
       await expect(page).toHaveURL(new RegExp(`/runs/${mockRunId}$`));
       await page.waitForSelector('[data-testid="run-status"]');
 
