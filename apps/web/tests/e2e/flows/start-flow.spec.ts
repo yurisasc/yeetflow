@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { login } from '../../helpers/auth';
 
 test.describe('YeetFlow E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the application
-    await page.goto('http://localhost:3000');
+    await login(page);
   });
 
   test('user can select a flow and see embedded remote browser', async ({
@@ -61,8 +61,8 @@ test.describe('YeetFlow E2E Tests', () => {
     await page.goto('/flows');
 
     // Verify flows are displayed
-    const flowsContainer = page.locator('[data-testid="flows-container"]');
-    await expect(flowsContainer).toBeVisible();
+    const flowsList = page.locator('[data-testid="flows-list"]');
+    await expect(flowsList).toBeVisible();
 
     // Should have at least one flow
     const flowCards = page.locator('[data-testid="flow-card"]');
