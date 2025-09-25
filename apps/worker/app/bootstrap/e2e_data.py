@@ -37,6 +37,8 @@ async def seed_e2e_flows() -> None:
                     attempt + 1,
                     max_attempts,
                 )
+                # End the current transaction to avoid long-lived idle-in-transaction
+                await session.rollback()
                 await asyncio.sleep(delay_seconds)
 
             if not admin_id:
@@ -46,6 +48,7 @@ async def seed_e2e_flows() -> None:
                 return
 
             # Double-check no flows were added while we were waiting
+            await session.rollback()
             any_flow = await session.execute(select(Flow.id).limit(1))
             if any_flow.scalar_one_or_none():
                 logger.debug("E2E flows seeded by another process; skipping")
