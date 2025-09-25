@@ -232,7 +232,10 @@ export default function RunMonitoringPage() {
                 <h1 className='text-2xl font-bold text-foreground'>
                   {runStatus.name}
                 </h1>
-                <Badge className={getStatusColor(runStatus.status)}>
+                <Badge
+                  className={getStatusColor(runStatus.status)}
+                  data-testid='run-status'
+                >
                   {runStatus.status.replace('_', ' ')}
                 </Badge>
               </div>
@@ -433,7 +436,9 @@ export default function RunMonitoringPage() {
                         ref={iframeRef}
                         src={embeddedUrl}
                         className='w-full h-full border border-border rounded-lg'
+                        data-testid='session-iframe'
                         onError={() => setIframeError(true)}
+                        onLoad={() => setIframeError(false)}
                         sandbox='allow-same-origin allow-scripts allow-forms allow-popups'
                       />
                     </div>
@@ -442,81 +447,82 @@ export default function RunMonitoringPage() {
               </Card>
             </div>
           </div>
-        </div>
 
-        {/* Handoff Dialog */}
-        <Dialog open={showHandoffDialog} onOpenChange={setShowHandoffDialog}>
-          <DialogContent className='bg-popover border-border'>
-            <DialogHeader>
-              <DialogTitle>Complete Manual Steps</DialogTitle>
-              <DialogDescription>
-                Hand off control to AI to continue the automation flow.
-                Optionally provide context about what you've completed.
-              </DialogDescription>
-            </DialogHeader>
+          {/* Handoff Dialog */}
+          <Dialog open={showHandoffDialog} onOpenChange={setShowHandoffDialog}>
+            <DialogContent className='bg-popover border-border'>
+              <DialogHeader>
+                <DialogTitle>Complete Manual Steps</DialogTitle>
+                <DialogDescription>
+                  Hand off control to AI to continue the automation flow.
+                  Optionally provide context about what you've completed.
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className='space-y-4'>
-              <div>
-                <Label htmlFor='notes'>Notes for AI (optional)</Label>
-                <Textarea
-                  id='notes'
-                  placeholder="Describe what you've completed or any important context..."
-                  value={handoffNotes}
-                  onChange={(e) => setHandoffNotes(e.target.value)}
-                  className='mt-1 bg-input border-border'
-                  rows={3}
-                />
-                <p className='text-xs text-muted-foreground mt-1'>
-                  {handoffNotes.length}/280 characters
-                </p>
-              </div>
+              <div className='space-y-4'>
+                <div>
+                  <Label htmlFor='notes'>Notes for AI (optional)</Label>
+                  <Textarea
+                    id='notes'
+                    placeholder="Describe what you've completed or any important context..."
+                    value={handoffNotes}
+                    onChange={(e) => setHandoffNotes(e.target.value)}
+                    className='mt-1 bg-input border-border'
+                    rows={3}
+                    maxLength={280}
+                  />
+                  <p className='text-xs text-muted-foreground mt-1'>
+                    {handoffNotes.length}/280 characters
+                  </p>
+                </div>
 
-              <div>
-                <Button
-                  variant='ghost'
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className='p-0 h-auto text-sm text-muted-foreground hover:text-foreground'
-                >
-                  Advanced Options
-                  {showAdvanced ? (
-                    <ChevronUp className='w-4 h-4 ml-1' />
-                  ) : (
-                    <ChevronDown className='w-4 h-4 ml-1' />
+                <div>
+                  <Button
+                    variant='ghost'
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className='p-0 h-auto text-sm text-muted-foreground hover:text-foreground'
+                  >
+                    Advanced Options
+                    {showAdvanced ? (
+                      <ChevronUp className='w-4 h-4 ml-1' />
+                    ) : (
+                      <ChevronDown className='w-4 h-4 ml-1' />
+                    )}
+                  </Button>
+
+                  {showAdvanced && (
+                    <div className='mt-2'>
+                      <Label htmlFor='json'>Input JSON (optional)</Label>
+                      <Textarea
+                        id='json'
+                        placeholder='{"key": "value"}'
+                        value={inputJson}
+                        onChange={(e) => setInputJson(e.target.value)}
+                        className='mt-1 font-mono text-sm bg-input border-border'
+                        rows={4}
+                      />
+                    </div>
                   )}
-                </Button>
-
-                {showAdvanced && (
-                  <div className='mt-2'>
-                    <Label htmlFor='json'>Input JSON (optional)</Label>
-                    <Textarea
-                      id='json'
-                      placeholder='{"key": "value"}'
-                      value={inputJson}
-                      onChange={(e) => setInputJson(e.target.value)}
-                      className='mt-1 font-mono text-sm bg-input border-border'
-                      rows={4}
-                    />
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <DialogFooter>
-              <Button
-                variant='outline'
-                onClick={() => setShowHandoffDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleHandoffSubmit}
-                className='bg-primary hover:bg-primary/90'
-              >
-                Continue with AI
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button
+                  variant='outline'
+                  onClick={() => setShowHandoffDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleHandoffSubmit}
+                  className='bg-primary hover:bg-primary/90'
+                >
+                  Continue with AI
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </AuthGuard>
   );
