@@ -70,7 +70,7 @@ class RunService:
                 )
                 self._fail_session_creation()
 
-            session_url = session_data.get("sessionViewerUrl")
+            session_url = session_data.get("debugUrl")
             browser_session_id = session_data.get("id")
 
             if not session_url:

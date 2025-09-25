@@ -58,9 +58,9 @@ class SteelService:
                 return None
 
             session_data = response.json()
-            session_url = session_data.get("sessionViewerUrl")
+            session_url = session_data.get("debugUrl")
             if not session_url:
-                logger.error("Steel session created but missing 'sessionViewerUrl'")
+                logger.error("Steel session created but missing 'debugUrl'")
                 return None
             logger.info(
                 "Successfully created Steel session: %s",
