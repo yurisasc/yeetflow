@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict, HttpUrl, model_validator
 from pydantic import Field as PydField
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Index
@@ -237,6 +237,20 @@ class RunRead(PydanticBaseModel):
     result_uri: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class RunCreateResponse(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    id: UUID
+    flow_id: UUID
+    user_id: UUID
+    status: RunStatus
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    session_url: HttpUrl | None = None
 
 
 class RunUpdate(PydanticBaseModel):

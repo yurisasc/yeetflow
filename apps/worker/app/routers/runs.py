@@ -12,6 +12,7 @@ from app.models import (
     EventRead,
     RunContinue,
     RunCreate,
+    RunCreateResponse,
     RunRead,
     RunUpdate,
     SessionRead,
@@ -21,6 +22,7 @@ from app.models import (
 from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
     MissingSessionURLError,
+    RunFinalizationError,
     SessionCreationFailedError,
 )
 from app.services.run.service import RunService
@@ -35,16 +37,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/runs", response_model=RunRead, status_code=HTTPStatus.CREATED)
+@router.post("/runs", response_model=RunCreateResponse, status_code=HTTPStatus.CREATED)
 async def create_run(
     request: RunCreate,
     current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
 ):
-    """Create a new run, initialize Steel.dev session, and return run details."""
+    """Create a new run, initialize browser session, return run with session URL."""
     service = RunService()
     try:
-        return await service.create_run_with_user(request, current_user, session)
+        run, session_url = await service.create_run_with_user(
+            request, current_user, session
+        )
+
+        return RunCreateResponse(
+            id=run.id,
+            flow_id=run.flow_id,
+            user_id=run.user_id,
+            status=run.status,
+            started_at=run.started_at,
+            ended_at=run.ended_at,
+            error=run.error,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+            session_url=session_url,
+        )
     except FlowNotFoundError as e:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
@@ -71,7 +88,7 @@ async def create_run(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Invalid request data",
         ) from e
-    except SessionCreationFailedError as e:
+    except (RunFinalizationError, SessionCreationFailedError) as e:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
             detail=str(e),

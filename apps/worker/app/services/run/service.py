@@ -21,6 +21,7 @@ from app.models import Session as SessionModel
 from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
     MissingSessionURLError,
+    RunFinalizationError,
     RunNotFoundError,
     SessionCreationFailedError,
 )
@@ -44,8 +45,11 @@ class RunService:
 
     async def create_run_with_user(
         self, request: RunCreate, user: User, session: AsyncSession
-    ) -> Run:
-        """Create a new run with authenticated user."""
+    ) -> tuple[Run, str]:
+        """Create a new run with authenticated user.
+        Returns:
+            tuple: (run, session_url) where session_url is the browser session URL
+        """
         # Validate that the flow exists and user has access to it
         await self._validate_flow_exists_and_access(request.flow_id, user, session)
 
@@ -96,7 +100,7 @@ class RunService:
             await session.rollback()
             raise
         else:
-            return run
+            return run, session_url
 
     async def list_runs_for_user(
         self, user_id: UUID, session: AsyncSession, skip: int = 0, limit: int = 100
@@ -155,6 +159,11 @@ class RunService:
         session: AsyncSession,
     ) -> Run:
         """Create session record and finalize the run."""
+        # Ensure run exists before creating related records
+        run = await self.repository.get_by_id(session, run_id)
+        if not run:
+            self._handle_run_finalization_failure(run_id, browser_session_id)
+
         # Create session record
         db_session = SessionModel(
             id=uuid4(),
@@ -164,15 +173,10 @@ class RunService:
             status=SessionStatus.ACTIVE,
         )
         await self.repository.create_session(session, db_session)
-
-        # Update run
-        run = await self.repository.get_by_id(session, run_id)
-        if run:
-            run.status = RunStatus.RUNNING
-            run.started_at = datetime.now(UTC)
-            run.updated_at = datetime.now(UTC)
-            await self.repository.update(session, run)
-
+        run.status = RunStatus.RUNNING
+        run.started_at = datetime.now(UTC)
+        run.updated_at = datetime.now(UTC)
+        await self.repository.update(session, run)
         return run
 
     def _fail_session_creation(self) -> None:
@@ -182,6 +186,17 @@ class RunService:
     def _fail_missing_url(self) -> None:
         """Raise missing URL failure."""
         raise MissingSessionURLError
+
+    def _handle_run_finalization_failure(
+        self, run_id: UUID, browser_session_id: str | None
+    ) -> None:
+        """Handle run finalization failures by logging and raising explicit error."""
+        logger.error(
+            "Run finalization failed for run_id=%s session_id=%s",
+            run_id,
+            browser_session_id,
+        )
+        raise RunFinalizationError(str(run_id), browser_session_id)
 
     async def _emit_progress_safe(self, run_id: UUID, data: dict) -> None:
         """Safely emit progress events."""
