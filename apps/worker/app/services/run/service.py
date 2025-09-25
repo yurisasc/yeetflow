@@ -84,9 +84,6 @@ class RunService:
                 run_id, session_url, browser_session_id, session
             )
 
-            if run is None:
-                self._handle_run_finalization_failure(run_id, browser_session_id)
-
             # Emit final progress event
             await self._emit_progress_safe(
                 run_id,
@@ -162,6 +159,11 @@ class RunService:
         session: AsyncSession,
     ) -> Run:
         """Create session record and finalize the run."""
+        # Ensure run exists before creating related records
+        run = await self.repository.get_by_id(session, run_id)
+        if not run:
+            self._handle_run_finalization_failure(run_id, browser_session_id)
+
         # Create session record
         db_session = SessionModel(
             id=uuid4(),
@@ -171,11 +173,6 @@ class RunService:
             status=SessionStatus.ACTIVE,
         )
         await self.repository.create_session(session, db_session)
-
-        # Update run
-        run = await self.repository.get_by_id(session, run_id)
-        if not run:
-            self._handle_run_finalization_failure(run_id, browser_session_id)
         run.status = RunStatus.RUNNING
         run.started_at = datetime.now(UTC)
         run.updated_at = datetime.now(UTC)
@@ -194,8 +191,8 @@ class RunService:
         self, run_id: UUID, browser_session_id: str | None
     ) -> None:
         """Handle run finalization failures by logging and raising explicit error."""
-        logger.warning(
-            "Run finalization returned None for run_id=%s session_id=%s",
+        logger.error(
+            "Run finalization failed for run_id=%s session_id=%s",
             run_id,
             browser_session_id,
         )
