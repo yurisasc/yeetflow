@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_SERVER === 'true';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -39,14 +41,14 @@ export default defineConfig({
     {
       command: 'pnpm dev',
       url: 'http://localhost:3000',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer,
     },
     {
       // Use a dedicated E2E DB and clean slate on each run
       command:
         'cd ../worker && rm -f yeetflow_e2e.db && E2E_SEED=true DATABASE_URL=sqlite:///yeetflow_e2e.db pnpm dev',
       url: 'http://localhost:8000',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer,
     },
   ],
 });

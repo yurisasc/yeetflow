@@ -3,10 +3,21 @@ import { NextRequest, NextResponse } from 'next/server';
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL || 'http://localhost:8000';
 const WORKER_API_TOKEN = process.env.WORKER_API_TOKEN;
 
-type RouteContext = { params: Promise<{ path: string[] }> };
+type RouteContext = {
+  params: Promise<{ path?: string | string[] }>;
+};
 
 async function resolvePath(context: RouteContext): Promise<string[]> {
   const { path } = await context.params;
+
+  if (path === undefined) {
+    return [];
+  }
+
+  if (typeof path === 'string') {
+    return [path];
+  }
+
   return path;
 }
 

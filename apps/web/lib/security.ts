@@ -1,13 +1,11 @@
 // Security configuration for YeetFlow
 // Implements Content Security Policy and other security headers
 
-const scriptSrc: string[] = [
-  "'self'",
-  "'unsafe-eval'", // Required for Next.js development tooling
-];
+const scriptSrc: string[] = ["'self'"];
 
 if (process.env.NODE_ENV !== 'production') {
   // Next.js dev server injects inline scripts for HMR and RSC refresh
+  scriptSrc.push("'unsafe-eval'");
   scriptSrc.push("'unsafe-inline'");
 }
 
