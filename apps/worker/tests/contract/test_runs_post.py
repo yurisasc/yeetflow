@@ -22,6 +22,9 @@ class TestRunsPostContract(BaseTestClass):
         assert data["status"] == "running"
         assert "session_url" in data
         assert data["session_url"] is not None
+        assert data["session_url"].startswith("http"), (
+            "session_url should be an HTTP(S) URL"
+        )
         assert data["flow_id"] == "550e8400-e29b-41d4-a716-446655440000"
         assert data["user_id"] == "550e8400-e29b-41d4-a716-446655440000"
 
@@ -78,6 +81,9 @@ class TestRunsPostContract(BaseTestClass):
         assert data["status"] == "running"
         assert "session_url" in data
         assert data["session_url"] is not None
+        assert data["session_url"].startswith("http"), (
+            "session_url should be an HTTP(S) URL"
+        )
 
         # Check that sessions were created for this run
         sessions_response = self.client.get(

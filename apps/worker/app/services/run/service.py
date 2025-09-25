@@ -21,6 +21,7 @@ from app.models import Session as SessionModel
 from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
     MissingSessionURLError,
+    RunFinalizationError,
     RunNotFoundError,
     SessionCreationFailedError,
 )
@@ -82,6 +83,9 @@ class RunService:
             run = await self._create_session_and_finalize_run(
                 run_id, session_url, browser_session_id, session
             )
+
+            if run is None:
+                self._handle_run_finalization_failure(run_id, browser_session_id)
 
             # Emit final progress event
             await self._emit_progress_safe(
@@ -170,12 +174,13 @@ class RunService:
 
         # Update run
         run = await self.repository.get_by_id(session, run_id)
-        if run:
-            run.status = RunStatus.RUNNING
-            run.started_at = datetime.now(UTC)
-            run.updated_at = datetime.now(UTC)
-            await self.repository.update(session, run)
-
+        if not run:
+            # Should not happen: run was just created in the same transaction
+            raise SessionCreationFailedError
+        run.status = RunStatus.RUNNING
+        run.started_at = datetime.now(UTC)
+        run.updated_at = datetime.now(UTC)
+        await self.repository.update(session, run)
         return run
 
     def _fail_session_creation(self) -> None:
@@ -185,6 +190,17 @@ class RunService:
     def _fail_missing_url(self) -> None:
         """Raise missing URL failure."""
         raise MissingSessionURLError
+
+    def _handle_run_finalization_failure(
+        self, run_id: UUID, browser_session_id: str | None
+    ) -> None:
+        """Handle run finalization failures by logging and raising explicit error."""
+        logger.warning(
+            "Run finalization returned None for run_id=%s session_id=%s",
+            run_id,
+            browser_session_id,
+        )
+        raise RunFinalizationError(str(run_id), browser_session_id)
 
     async def _emit_progress_safe(self, run_id: UUID, data: dict) -> None:
         """Safely emit progress events."""

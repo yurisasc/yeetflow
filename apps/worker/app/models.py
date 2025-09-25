@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict, HttpUrl, model_validator
 from pydantic import Field as PydField
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Index
@@ -250,7 +250,7 @@ class RunCreateResponse(PydanticBaseModel):
     error: str | None = None
     created_at: datetime
     updated_at: datetime
-    session_url: str | None = None
+    session_url: HttpUrl | None = None
 
 
 class RunUpdate(PydanticBaseModel):

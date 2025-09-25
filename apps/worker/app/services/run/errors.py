@@ -21,3 +21,13 @@ class RunNotFoundError(RunError):
 
     def __init__(self, run_id: str) -> None:
         super().__init__(f"Run {run_id} not found")
+
+
+class RunFinalizationError(RunError):
+    """Raised when a run cannot be finalized after session creation."""
+
+    def __init__(self, run_id: str, session_id: str | None = None) -> None:
+        message = f"Run {run_id} could not be finalized"
+        if session_id:
+            message = f"{message} for session {session_id}"
+        super().__init__(message)
