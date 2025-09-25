@@ -74,7 +74,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.user_role = token_data.role
 
         except HTTPException as e:
-            logger.warning("Token validation failed: %s", e)
+            logger.debug("Token validation failed: %s", e)
             return JSONResponse(
                 status_code=HTTPStatus.UNAUTHORIZED,
                 content={"detail": "Invalid or expired token"},

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { login } from '../../helpers/auth';
 
 test.describe('Authentication Login E2E', () => {
   test.beforeEach(async ({ page }) => {
@@ -18,20 +19,8 @@ test.describe('Authentication Login E2E', () => {
   test('user can log in via email/password and access flows page', async ({
     page,
   }) => {
-    // Wait for login form to load
-    await page.waitForSelector('[data-testid="login-form"]');
+    await login(page);
 
-    // Fill in credentials
-    await page.fill('[data-testid="email-input"]', 'demo@yeetflow.com');
-    await page.fill('[data-testid="password-input"]', 'demo123');
-
-    // Submit the login form
-    await page.click('[data-testid="login-submit"]');
-
-    // Wait for login to complete and redirect to flows
-    await page.waitForURL('/flows');
-
-    // Verify we're on flows page and authenticated UI loads
     await expect(page).toHaveURL('/flows');
     await expect(page.locator('[data-testid="flows-list"]')).toBeVisible();
   });
@@ -57,15 +46,8 @@ test.describe('Authentication Login E2E', () => {
   });
 
   test('login redirects to protected page after success', async ({ page }) => {
-    // Wait for login form to load
-    await page.waitForSelector('[data-testid="login-form"]');
+    await login(page);
 
-    // Login should redirect to flows
-    await page.fill('[data-testid="email-input"]', 'demo@yeetflow.com');
-    await page.fill('[data-testid="password-input"]', 'demo123');
-    await page.click('[data-testid="login-submit"]');
-
-    // Should redirect to flows
-    await page.waitForURL('/flows');
+    await expect(page).toHaveURL('/flows');
   });
 });

@@ -3,43 +3,35 @@ import { NextRequest, NextResponse } from 'next/server';
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL || 'http://localhost:8000';
 const WORKER_API_TOKEN = process.env.WORKER_API_TOKEN;
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  const { path } = params;
+type RouteContext = { params: Promise<{ path: string[] }> };
+
+async function resolvePath(context: RouteContext): Promise<string[]> {
+  const { path } = await context.params;
+  return path;
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const path = await resolvePath(context);
   return proxyRequest(request, path);
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  const { path } = params;
+export async function POST(request: NextRequest, context: RouteContext) {
+  const path = await resolvePath(context);
   return proxyRequest(request, path);
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  const { path } = params;
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const path = await resolvePath(context);
   return proxyRequest(request, path);
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  const { path } = params;
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const path = await resolvePath(context);
   return proxyRequest(request, path);
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { path: string[] } },
-) {
-  const { path } = params;
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  const path = await resolvePath(context);
   return proxyRequest(request, path);
 }
 
