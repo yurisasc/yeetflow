@@ -239,6 +239,20 @@ class RunRead(PydanticBaseModel):
     updated_at: datetime
 
 
+class RunCreateResponse(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    id: UUID
+    flow_id: UUID
+    user_id: UUID
+    status: RunStatus
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    session_url: str | None = None
+
+
 class RunUpdate(PydanticBaseModel):
     model_config = ConfigDict(from_attributes=True)
     result_uri: str | None = None

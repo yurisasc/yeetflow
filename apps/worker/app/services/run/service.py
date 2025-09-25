@@ -44,8 +44,11 @@ class RunService:
 
     async def create_run_with_user(
         self, request: RunCreate, user: User, session: AsyncSession
-    ) -> Run:
-        """Create a new run with authenticated user."""
+    ) -> tuple[Run, str]:
+        """Create a new run with authenticated user.
+        Returns:
+            tuple: (run, session_url) where session_url is the browser session URL
+        """
         # Validate that the flow exists and user has access to it
         await self._validate_flow_exists_and_access(request.flow_id, user, session)
 
@@ -96,7 +99,7 @@ class RunService:
             await session.rollback()
             raise
         else:
-            return run
+            return run, session_url
 
     async def list_runs_for_user(
         self, user_id: UUID, session: AsyncSession, skip: int = 0, limit: int = 100

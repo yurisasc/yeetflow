@@ -20,6 +20,8 @@ class TestRunsPostContract(BaseTestClass):
         data = response.json()
         assert "id" in data
         assert data["status"] == "running"
+        assert "session_url" in data
+        assert data["session_url"] is not None
         assert data["flow_id"] == "550e8400-e29b-41d4-a716-446655440000"
         assert data["user_id"] == "550e8400-e29b-41d4-a716-446655440000"
 
@@ -74,6 +76,8 @@ class TestRunsPostContract(BaseTestClass):
 
         # Verify the run was created and is in running state
         assert data["status"] == "running"
+        assert "session_url" in data
+        assert data["session_url"] is not None
 
         # Check that sessions were created for this run
         sessions_response = self.client.get(
