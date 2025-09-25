@@ -175,8 +175,7 @@ class RunService:
         # Update run
         run = await self.repository.get_by_id(session, run_id)
         if not run:
-            # Should not happen: run was just created in the same transaction
-            raise SessionCreationFailedError
+            self._handle_run_finalization_failure(run_id, browser_session_id)
         run.status = RunStatus.RUNNING
         run.started_at = datetime.now(UTC)
         run.updated_at = datetime.now(UTC)

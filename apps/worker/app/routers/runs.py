@@ -22,6 +22,7 @@ from app.models import (
 from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
     MissingSessionURLError,
+    RunFinalizationError,
     SessionCreationFailedError,
 )
 from app.services.run.service import RunService
@@ -87,7 +88,7 @@ async def create_run(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Invalid request data",
         ) from e
-    except SessionCreationFailedError as e:
+    except (RunFinalizationError, SessionCreationFailedError) as e:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
             detail=str(e),
