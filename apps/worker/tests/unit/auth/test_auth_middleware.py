@@ -349,3 +349,24 @@ class TestAuthMiddleware:
             # Should use the Authorization header token
             mock_verify.assert_called_once_with("valid.jwt.token")
             mock_call_next.assert_called_once_with(mock_request)
+
+    async def test_invalid_header_blocks_even_if_cookie_valid(
+        self, middleware, mock_request, mock_call_next
+    ):
+        """Test that invalid Authorization header blocks even with valid cookie."""
+        mock_request.url.path = "/api/v1/protected/endpoint"
+        mock_request.headers.get.return_value = "Bearer invalid.jwt.token"
+        mock_request.cookies.get.return_value = "valid.jwt.token"
+
+        with patch("app.middleware.auth.verify_token") as mock_verify:
+            mock_verify.side_effect = HTTPException(
+                status_code=401, detail="Invalid token"
+            )
+
+            result = await middleware.dispatch(mock_request, mock_call_next)
+
+            mock_call_next.assert_not_called()
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == HTTPStatus.UNAUTHORIZED
+            # Ensure we attempted to validate header token only, not cookie
+            mock_verify.assert_called_once_with("invalid.jwt.token")

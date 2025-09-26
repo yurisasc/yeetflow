@@ -84,7 +84,7 @@ class WebLoginUser(BaseModel):
     """User data returned in web login response."""
 
     email: str
-    role: str
+    role: UserRole
 
 
 class WebLoginResponse(BaseModel):

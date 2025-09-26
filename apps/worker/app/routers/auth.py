@@ -1,7 +1,16 @@
 import logging
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Header,
+    HTTPException,
+    Response,
+    status,
+)
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError
 from pydantic import BaseModel
@@ -75,30 +84,14 @@ async def register_user(
 @router.post(
     "/auth/login",
     response_model=Token | WebLoginResponse,
-    openapi_extra={
-        "parameters": [
-            {
-                "name": "X-Client-Type",
-                "in": "header",
-                "required": False,
-                "schema": {
-                    "type": "string",
-                    "enum": ["web", "mobile"],
-                    "default": "web",
-                    "description": (
-                        "Client type for hybrid authentication. 'web' returns cookies,"
-                        "'mobile' returns tokens in response body."
-                    ),
-                },
-            }
-        ]
-    },
 )
 async def login(
-    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = oauth2_form_dep,
     session: AsyncSession = get_db_session_dep,
+    client_type: Literal["web", "mobile"] = Header(
+        default="web", alias="X-Client-Type"
+    ),
 ):
     """Authenticate user and return JWT tokens (OAuth2 compatible)."""
     auth_service = AuthService()
@@ -110,28 +103,26 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
     tokens = auth_service.create_user_tokens(user)
 
     # Check client type for hybrid authentication
-    client_type = request.headers.get("X-Client-Type", "web").lower()
-
-    if client_type == "mobile":
+    if client_type.lower() == "mobile":
         # Mobile clients get full token response with expiry details
         logger.info("User %s logged in successfully (mobile client)", user.email)
         return tokens
 
     # Web clients get HttpOnly cookies (default behavior)
-    # Set HttpOnly cookies for tokens using configurable settings
     response.set_cookie(
         key="access_token",
         value=tokens.access_token,
         httponly=True,
         secure=settings.cookie_secure,
         samesite=settings.cookie_samesite,
-        max_age=settings.cookie_max_age or tokens.expires_in,
+        max_age=tokens.expires_in,
+        expires=tokens.access_token_expires_at,
+        path="/",
     )
 
     response.set_cookie(
@@ -140,7 +131,9 @@ async def login(
         httponly=True,
         secure=settings.cookie_secure,
         samesite=settings.cookie_samesite,
-        max_age=settings.cookie_max_age or tokens.refresh_expires_in,
+        max_age=tokens.refresh_expires_in,
+        expires=tokens.refresh_token_expires_at,
+        path="/",
     )
 
     logger.info("User %s logged in successfully (web client)", user.email)
