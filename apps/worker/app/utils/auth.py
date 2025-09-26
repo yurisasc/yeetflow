@@ -66,6 +66,10 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"  # noqa: S105 OAuth2 standard token type
+    expires_in: int  # Access token expiry in seconds (OAuth2 standard)
+    refresh_expires_in: int  # Refresh token expiry in seconds
+    access_token_expires_at: datetime  # Absolute expiry timestamp for mobile clients
+    refresh_token_expires_at: datetime  # Absolute expiry timestamp for mobile clients
 
 
 class TokenData(BaseModel):

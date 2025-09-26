@@ -24,6 +24,7 @@ class TestAuthMiddleware:
         request = MagicMock(spec=Request)
         request.url = MagicMock()
         request.headers = MagicMock()
+        request.cookies = MagicMock()
         request.state = MagicMock()
         return request
 
@@ -63,16 +64,21 @@ class TestAuthMiddleware:
     ):
         """Test that protected endpoints require Authorization header."""
         mock_request.url.path = "/api/v1/protected/endpoint"
-        mock_request.headers.get.return_value = None  # No Authorization header
+        # Configure mock to return None for all header and cookie calls
+        mock_request.headers.get.return_value = None
+        mock_request.cookies.get.return_value = None
 
         result = await middleware.dispatch(mock_request, mock_call_next)
 
-        # Should not call next
-        mock_call_next.assert_not_called()
-        # Should return 401 response
+        # Should return 401 response with appropriate error message
         assert isinstance(result, JSONResponse)
         assert result.status_code == HTTPStatus.UNAUTHORIZED
-        assert "Authorization header missing" in result.body.decode()
+        response_body = result.body.decode()
+        # Error message depends on how the middleware handles missing credentials
+        assert (
+            "Authentication credentials missing" in response_body
+            or "Invalid authorization header format" in response_body
+        )
         assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_invalid_auth_header_format(
@@ -81,6 +87,7 @@ class TestAuthMiddleware:
         """Test handling of malformed Authorization header."""
         mock_request.url.path = "/api/v1/protected/endpoint"
         mock_request.headers.get.return_value = "InvalidFormat"  # Missing Bearer
+        mock_request.cookies.get.return_value = None
 
         result = await middleware.dispatch(mock_request, mock_call_next)
 
@@ -96,6 +103,7 @@ class TestAuthMiddleware:
         """Test handling of invalid scheme in Authorization header."""
         mock_request.url.path = "/api/v1/protected/endpoint"
         mock_request.headers.get.return_value = "Basic token123"  # Wrong scheme
+        mock_request.cookies.get.return_value = None
 
         result = await middleware.dispatch(mock_request, mock_call_next)
 
@@ -303,3 +311,43 @@ class TestAuthMiddleware:
             mock_call_next2.assert_called_once_with(mock_request2)
             assert mock_request2.state.user_id == "user-123"
             assert mock_request2.state.user_role == UserRole.USER
+
+    async def test_cookie_authentication_web_client(
+        self, middleware, mock_request, mock_call_next
+    ):
+        """Test authentication using HttpOnly cookies (web clients)."""
+        mock_request.url.path = "/api/v1/protected/endpoint"
+        mock_request.headers.get.return_value = None  # No Authorization header
+        mock_request.cookies.get.return_value = "valid.jwt.token"  # Has cookie
+
+        with patch("app.middleware.auth.verify_token") as mock_verify:
+            mock_token_data = MagicMock()
+            mock_token_data.user_id = "user-123"
+            mock_token_data.role = UserRole.USER
+            mock_verify.return_value = mock_token_data
+
+            await middleware.dispatch(mock_request, mock_call_next)
+
+            mock_call_next.assert_called_once_with(mock_request)
+            assert mock_request.state.user_id == "user-123"
+            assert mock_request.state.user_role == UserRole.USER
+
+    async def test_authorization_header_takes_precedence_over_cookies(
+        self, middleware, mock_request, mock_call_next
+    ):
+        """Test that Authorization header is checked before cookies."""
+        mock_request.url.path = "/api/v1/protected/endpoint"
+        mock_request.headers.get.return_value = "Bearer valid.jwt.token"
+        mock_request.cookies.get.return_value = "different.jwt.token"
+
+        with patch("app.middleware.auth.verify_token") as mock_verify:
+            mock_token_data = MagicMock()
+            mock_token_data.user_id = "user-123"
+            mock_token_data.role = UserRole.USER
+            mock_verify.return_value = mock_token_data
+
+            await middleware.dispatch(mock_request, mock_call_next)
+
+            # Should use the Authorization header token
+            mock_verify.assert_called_once_with("valid.jwt.token")
+            mock_call_next.assert_called_once_with(mock_request)

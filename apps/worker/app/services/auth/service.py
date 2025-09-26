@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func
@@ -7,6 +8,8 @@ from sqlmodel import select
 
 from app.models import User, UserCreate, UserRead, UserRole
 from app.utils.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
     Token,
     create_access_token,
     create_refresh_token,
@@ -107,7 +110,23 @@ class AuthService:
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
 
-        return Token(access_token=access_token, refresh_token=refresh_token)
+        # Calculate expiry times
+        now = datetime.now(UTC)
+        access_expires_at = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_expires_at = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_in = ACCESS_TOKEN_EXPIRE_MINUTES * 60  # Convert minutes to seconds
+        refresh_expires_in = (
+            REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        )  # Convert days to seconds
+
+        return Token(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=expires_in,
+            refresh_expires_in=refresh_expires_in,
+            access_token_expires_at=access_expires_at,
+            refresh_token_expires_at=refresh_expires_at,
+        )
 
     async def refresh_user_tokens(
         self, refresh_token: str, session: AsyncSession

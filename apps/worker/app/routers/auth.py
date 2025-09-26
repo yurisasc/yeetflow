@@ -1,7 +1,8 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError
 from pydantic import BaseModel
@@ -69,8 +70,30 @@ async def register_user(
         ) from e
 
 
-@router.post("/auth/login", response_model=Token)
+@router.post(
+    "/auth/login",
+    response_model=Token,
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "X-Client-Type",
+                "in": "header",
+                "required": False,
+                "schema": {
+                    "type": "string",
+                    "enum": ["web", "mobile"],
+                    "default": "web",
+                    "description": (
+                        "Client type for hybrid authentication. 'web' returns cookies,"
+                        "'mobile' returns tokens in response body."
+                    ),
+                },
+            }
+        ]
+    },
+)
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = oauth2_form_dep,
     session: AsyncSession = get_db_session_dep,
 ):
@@ -90,8 +113,44 @@ async def login(
     # Create tokens
     tokens = auth_service.create_user_tokens(user)
 
-    logger.info("User %s logged in successfully", user.email)
-    return tokens
+    # Check client type for hybrid authentication
+    client_type = request.headers.get("X-Client-Type", "web").lower()
+
+    if client_type == "mobile":
+        # Mobile clients get full token response with expiry details
+        logger.info("User %s logged in successfully (mobile client)", user.email)
+        return tokens
+
+    # Web clients get HttpOnly cookies (default behavior)
+    response = JSONResponse(
+        content={
+            "message": "Login successful",
+            "user": {"email": user.email, "role": user.role.value},
+        },
+        status_code=status.HTTP_200_OK,
+    )
+
+    # Set HttpOnly cookies for tokens
+    response.set_cookie(
+        key="access_token",
+        value=tokens.access_token,
+        httponly=True,
+        secure=True,  # HTTPS only in production
+        samesite="lax",
+        max_age=tokens.expires_in,
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens.refresh_token,
+        httponly=True,
+        secure=True,  # HTTPS only in production
+        samesite="lax",
+        max_age=tokens.refresh_expires_in,
+    )
+
+    logger.info("User %s logged in successfully (web client)", user.email)
+    return response
 
 
 @router.post("/auth/refresh", response_model=Token)
