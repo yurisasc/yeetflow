@@ -6,10 +6,9 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.config import settings
 from app.models import User, UserCreate, UserRead, UserRole
 from app.utils.auth import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS,
     Token,
     create_access_token,
     create_refresh_token,
@@ -109,15 +108,14 @@ class AuthService:
 
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
-
         # Calculate expiry times
         now = datetime.now(UTC)
-        access_expires_at = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        refresh_expires_at = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-        expires_in = ACCESS_TOKEN_EXPIRE_MINUTES * 60  # Convert minutes to seconds
-        refresh_expires_in = (
-            REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-        )  # Convert days to seconds
+        access_expires_at = now + timedelta(
+            minutes=settings.access_token_expire_minutes
+        )
+        refresh_expires_at = now + timedelta(days=settings.refresh_token_expire_days)
+        expires_in = int((access_expires_at - now).total_seconds())
+        refresh_expires_in = int((refresh_expires_at - now).total_seconds())
 
         return Token(
             access_token=access_token,

@@ -80,6 +80,20 @@ class TokenData(BaseModel):
     role: UserRole | None = None
 
 
+class WebLoginUser(BaseModel):
+    """User data returned in web login response."""
+
+    email: str
+    role: str
+
+
+class WebLoginResponse(BaseModel):
+    """Response model for web client login."""
+
+    message: str
+    user: WebLoginUser
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
     return pwd_context.verify(plain_password, hashed_password)

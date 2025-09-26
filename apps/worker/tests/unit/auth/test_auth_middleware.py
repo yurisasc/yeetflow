@@ -59,26 +59,24 @@ class TestAuthMiddleware:
 
         mock_call_next.assert_called_once_with(mock_request)
 
-    async def test_protected_endpoint_requires_auth_header(
+    async def test_protected_endpoint_requires_auth_header_missing(
         self, middleware, mock_request, mock_call_next
     ):
-        """Test that protected endpoints require Authorization header."""
+        """Test that protected endpoints require Authorization header when missing."""
         mock_request.url.path = "/api/v1/protected/endpoint"
-        # Configure mock to return None for all header and cookie calls
+        # Configure mock to return None for Authorization header and access_token cookie
         mock_request.headers.get.return_value = None
         mock_request.cookies.get.return_value = None
+        # Ensure state flags are not set
+        mock_request.state.invalid_auth_scheme = False
+        mock_request.state.malformed_auth_header = False
 
         result = await middleware.dispatch(mock_request, mock_call_next)
 
-        # Should return 401 response with appropriate error message
+        # Should return 401 response with specific error message for missing credentials
         assert isinstance(result, JSONResponse)
         assert result.status_code == HTTPStatus.UNAUTHORIZED
-        response_body = result.body.decode()
-        # Error message depends on how the middleware handles missing credentials
-        assert (
-            "Authentication credentials missing" in response_body
-            or "Invalid authorization header format" in response_body
-        )
+        assert "Authentication credentials missing" in result.body.decode()
         assert result.headers.get("WWW-Authenticate") == "Bearer"
 
     async def test_invalid_auth_header_format(

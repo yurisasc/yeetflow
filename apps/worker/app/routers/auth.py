@@ -1,19 +1,21 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.constants import BOOTSTRAP_USER_EMAIL
 from app.db import get_db_session
 from app.models import User, UserCreate, UserRead, UserRole
 from app.services.auth import AuthService
 from app.utils.auth import (
     Token,
+    WebLoginResponse,
+    WebLoginUser,
     check_admin_role,
     get_current_user,
     require_admin_or_first_user,
@@ -72,7 +74,7 @@ async def register_user(
 
 @router.post(
     "/auth/login",
-    response_model=Token,
+    response_model=Token | WebLoginResponse,
     openapi_extra={
         "parameters": [
             {
@@ -94,6 +96,7 @@ async def register_user(
 )
 async def login(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = oauth2_form_dep,
     session: AsyncSession = get_db_session_dep,
 ):
@@ -110,7 +113,6 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create tokens
     tokens = auth_service.create_user_tokens(user)
 
     # Check client type for hybrid authentication
@@ -122,35 +124,30 @@ async def login(
         return tokens
 
     # Web clients get HttpOnly cookies (default behavior)
-    response = JSONResponse(
-        content={
-            "message": "Login successful",
-            "user": {"email": user.email, "role": user.role.value},
-        },
-        status_code=status.HTTP_200_OK,
-    )
-
-    # Set HttpOnly cookies for tokens
+    # Set HttpOnly cookies for tokens using configurable settings
     response.set_cookie(
         key="access_token",
         value=tokens.access_token,
         httponly=True,
-        secure=True,  # HTTPS only in production
-        samesite="lax",
-        max_age=tokens.expires_in,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=settings.cookie_max_age or tokens.expires_in,
     )
 
     response.set_cookie(
         key="refresh_token",
         value=tokens.refresh_token,
         httponly=True,
-        secure=True,  # HTTPS only in production
-        samesite="lax",
-        max_age=tokens.refresh_expires_in,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=settings.cookie_max_age or tokens.refresh_expires_in,
     )
 
     logger.info("User %s logged in successfully (web client)", user.email)
-    return response
+    return WebLoginResponse(
+        message="Login successful",
+        user=WebLoginUser(email=user.email, role=user.role.value),
+    )
 
 
 @router.post("/auth/refresh", response_model=Token)

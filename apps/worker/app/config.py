@@ -116,6 +116,22 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
+    # Cookie configuration for web authentication
+    cookie_secure: bool = Field(
+        default=True,
+        description="Set secure flag on cookies (HTTPS only in production)",
+    )
+
+    cookie_samesite: str = Field(
+        default="lax",
+        description="SameSite attribute for cookies (lax, strict, none)",
+    )
+
+    cookie_max_age: int | None = Field(
+        default=None,
+        description="Max age for cookies in seconds (None to use token expiry)",
+    )
+
     # Retry configuration
     retry_max_attempts: int = Field(
         default=DEFAULT_RETRY_MAX_ATTEMPTS,

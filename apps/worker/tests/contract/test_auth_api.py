@@ -127,6 +127,18 @@ class TestAuthAPI(BaseTestClass):
         assert "refresh_token" in data
         assert data["token_type"] == "bearer"
 
+        # Assert presence of expiry metadata
+        assert "expires_in" in data
+        assert isinstance(data["expires_in"], int)
+        assert data["expires_in"] > 0
+
+        assert "refresh_expires_in" in data
+        assert isinstance(data["refresh_expires_in"], int)
+        assert data["refresh_expires_in"] > 0
+
+        assert "access_token_expires_at" in data
+        assert "refresh_token_expires_at" in data
+
     def test_login_invalid_credentials(self):
         """Test login with invalid credentials."""
         login_data = {"username": "user@example.com", "password": "wrongpassword"}
