@@ -3,6 +3,7 @@ Centralized configuration management for the YeetFlow worker application.
 All environment variables are loaded and validated here.
 """
 
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, model_validator
@@ -116,6 +117,17 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
+    # Cookie configuration for web authentication
+    cookie_secure: bool = Field(
+        default=True,
+        description="Set secure flag on cookies (HTTPS only in production)",
+    )
+
+    cookie_samesite: Literal["lax", "strict", "none"] = Field(
+        default="lax",
+        description="SameSite attribute for cookies ('lax' | 'strict' | 'none')",
+    )
+
     # Retry configuration
     retry_max_attempts: int = Field(
         default=DEFAULT_RETRY_MAX_ATTEMPTS,
@@ -195,6 +207,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security(self) -> "Settings":
+        self._validate_secret_key()
+        self._validate_cors_settings()
+        self._validate_token_expiry()
+        self._validate_cookie_settings()
+        return self
+
+    def _validate_secret_key(self) -> None:
+        """Validate secret key configuration."""
         if not self.secret_key or not self.secret_key.strip():
             msg = "SECRET_KEY must be set and non-empty"
             raise ValueError(msg)
@@ -204,8 +224,12 @@ class Settings(BaseSettings):
         if not self.debug and self.secret_key == DEFAULT_SECRET_KEY:
             msg = "SECRET_KEY must be set in production; set DEBUG=true for local dev"
             raise ValueError(msg)
+
+    def _validate_cors_settings(self) -> None:
+        """Validate CORS configuration."""
         cors_norm = normalize_origins(self.cors_allow_origins.strip())
         sio_norm = normalize_origins(self.socketio_cors.strip())
+
         if not self.debug and cors_norm == "*":
             msg = (
                 "CORS_ALLOW_ORIGINS cannot contain '*' in production; "
@@ -215,14 +239,17 @@ class Settings(BaseSettings):
         if not self.debug and sio_norm == "*":
             msg = "SOCKETIO_CORS cannot contain '*' in production; set explicit origins"
             raise ValueError(msg)
+
         # Guard against commas-only/whitespace resulting in an empty list
         if not self.debug and isinstance(cors_norm, list) and len(cors_norm) == 0:
             msg = "CORS_ALLOW_ORIGINS cannot be empty (or commas-only) in production"
             raise ValueError(msg)
-        # Guard against commas-only/whitespace resulting in an empty list
         if not self.debug and isinstance(sio_norm, list) and len(sio_norm) == 0:
             msg = "SOCKETIO_CORS cannot be empty (or commas-only) in production"
             raise ValueError(msg)
+
+    def _validate_token_expiry(self) -> None:
+        """Validate token expiry configuration."""
         refresh_minutes = self.refresh_token_expire_days * MINUTES_PER_DAY
         if refresh_minutes <= self.access_token_expire_minutes:
             msg = (
@@ -232,7 +259,19 @@ class Settings(BaseSettings):
                 f"{self.access_token_expire_minutes}m)"
             )
             raise ValueError(msg)
-        return self
+
+    def _validate_cookie_settings(self) -> None:
+        """Validate cookie configuration."""
+        # Validate cookie SameSite value
+        samesite = (self.cookie_samesite or "lax").lower()
+        if samesite not in {"lax", "strict", "none"}:
+            msg = "COOKIE_SAMESITE must be one of: lax, strict, none"
+            raise ValueError(msg)
+
+        # Enforce secure when SameSite=None (required by browsers)
+        if not self.debug and samesite == "none" and not self.cookie_secure:
+            msg = "COOKIE_SECURE must be true when COOKIE_SAMESITE=none in production"
+            raise ValueError(msg)
 
 
 # Global settings instance

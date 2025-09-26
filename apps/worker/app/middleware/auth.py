@@ -38,30 +38,26 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if any(request.url.path.startswith(path) for path in self.exclude_paths):
             return await call_next(request)
 
-        # Extract Authorization header
-        auth_header = request.headers.get("Authorization")
+        # Extract token from multiple sources (hybrid authentication)
+        token = self._extract_token(request)
 
-        if not auth_header:
+        if not token:
+            # Check for specific error conditions
+            if (
+                hasattr(request.state, "invalid_auth_scheme")
+                and request.state.invalid_auth_scheme
+            ) or (
+                hasattr(request.state, "malformed_auth_header")
+                and request.state.malformed_auth_header
+            ):
+                return JSONResponse(
+                    status_code=HTTPStatus.UNAUTHORIZED,
+                    content={"detail": "Invalid authorization header format"},
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             return JSONResponse(
                 status_code=HTTPStatus.UNAUTHORIZED,
-                content={"detail": "Authorization header missing"},
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # Extract token from "Bearer <token>" format
-        def _validate_scheme():
-            scheme, token = auth_header.split(" ", 1)
-            if scheme.lower() != "bearer":
-                error_msg = "Invalid scheme"
-                raise ValueError(error_msg)
-            return token.strip()
-
-        try:
-            token = _validate_scheme()
-        except ValueError:
-            return JSONResponse(
-                status_code=HTTPStatus.UNAUTHORIZED,
-                content={"detail": "Invalid authorization header format"},
+                content={"detail": "Authentication credentials missing"},
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
@@ -83,6 +79,37 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # Continue with the request
         return await call_next(request)
+
+    def _extract_token(self, request: Request) -> str | None:
+        """Extract JWT token from multiple sources for hybrid authentication.
+
+        Priority order:
+        1. Authorization: Bearer <token> header (mobile clients)
+        2. HttpOnly access_token cookie (web clients)
+        """
+        # First, try Authorization header (mobile clients)
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            try:
+                scheme, token = auth_header.split(" ", 1)
+                if scheme.lower() == "bearer":
+                    return token.strip()
+                # Invalid scheme - set flag for error message
+                request.state.invalid_auth_scheme = True
+            except ValueError:
+                # Malformed header - set flag for error message
+                request.state.malformed_auth_header = True
+                return None
+            else:
+                return None
+
+        # Second, try HttpOnly cookie (web clients)
+        access_token_cookie = request.cookies.get("access_token")
+        if access_token_cookie:
+            return access_token_cookie
+
+        # No valid token found
+        return None
 
 
 class CORSMiddleware(BaseHTTPMiddleware):

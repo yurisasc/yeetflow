@@ -114,14 +114,30 @@ class TestAuthAPI(BaseTestClass):
     def test_login_success(self):
         """Test successful user login."""
         login_data = {"username": "user@example.com", "password": "userpass"}
+        # Send mobile client header to get token response
+        headers = {"X-Client-Type": "mobile"}
 
-        response = self.client.post("/api/v1/auth/login", data=login_data)
+        response = self.client.post(
+            "/api/v1/auth/login", data=login_data, headers=headers
+        )
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json()
         assert "access_token" in data
         assert "refresh_token" in data
         assert data["token_type"] == "bearer"
+
+        # Assert presence of expiry metadata
+        assert "expires_in" in data
+        assert isinstance(data["expires_in"], int)
+        assert data["expires_in"] > 0
+
+        assert "refresh_expires_in" in data
+        assert isinstance(data["refresh_expires_in"], int)
+        assert data["refresh_expires_in"] > 0
+
+        assert "access_token_expires_at" in data
+        assert "refresh_token_expires_at" in data
 
     def test_login_invalid_credentials(self):
         """Test login with invalid credentials."""
@@ -208,7 +224,9 @@ class TestAuthAPI(BaseTestClass):
             "password": "userpass",
         }
 
-        login_response = self.client.post("/api/v1/auth/login", data=login_data)
+        login_response = self.client.post(
+            "/api/v1/auth/login", data=login_data, headers={"X-Client-Type": "mobile"}
+        )
         assert login_response.status_code == status.HTTP_200_OK
 
         tokens = login_response.json()
@@ -256,7 +274,9 @@ class TestAuthAPI(BaseTestClass):
         """Test refresh with access token instead of refresh token."""
         # Get an access token
         login_data = {"username": "user@example.com", "password": "userpass"}
-        login_response = self.client.post("/api/v1/auth/login", data=login_data)
+        login_response = self.client.post(
+            "/api/v1/auth/login", data=login_data, headers={"X-Client-Type": "mobile"}
+        )
         tokens = login_response.json()
 
         # Try to refresh with access token
@@ -266,3 +286,22 @@ class TestAuthAPI(BaseTestClass):
         assert "Invalid token type" in response.json()["detail"]
         assert "WWW-Authenticate" in response.headers
         assert response.headers["WWW-Authenticate"] == "Bearer"
+
+    def test_login_success_web_client(self):
+        """Test successful user login for web clients (cookies)."""
+        login_data = {"username": "user@example.com", "password": "userpass"}
+        # Default behavior is web client (no X-Client-Type header)
+
+        response = self.client.post("/api/v1/auth/login", data=login_data)
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        # Web clients get success message, not tokens
+        assert "access_token" not in data
+        assert "refresh_token" not in data
+        assert data["message"] == "Login successful"
+        assert "user" in data
+
+        # Check that cookies are set
+        assert "access_token" in response.cookies
+        assert "refresh_token" in response.cookies

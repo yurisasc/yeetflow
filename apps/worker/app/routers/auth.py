@@ -1,18 +1,30 @@
 import logging
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Header,
+    HTTPException,
+    Response,
+    status,
+)
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.constants import BOOTSTRAP_USER_EMAIL
 from app.db import get_db_session
 from app.models import User, UserCreate, UserRead, UserRole
 from app.services.auth import AuthService
 from app.utils.auth import (
     Token,
+    WebLoginResponse,
+    WebLoginUser,
     check_admin_role,
     get_current_user,
     require_admin_or_first_user,
@@ -69,10 +81,17 @@ async def register_user(
         ) from e
 
 
-@router.post("/auth/login", response_model=Token)
+@router.post(
+    "/auth/login",
+    response_model=Token | WebLoginResponse,
+)
 async def login(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = oauth2_form_dep,
     session: AsyncSession = get_db_session_dep,
+    client_type: Literal["web", "mobile"] = Header(
+        default="web", alias="X-Client-Type"
+    ),
 ):
     """Authenticate user and return JWT tokens (OAuth2 compatible)."""
     auth_service = AuthService()
@@ -84,14 +103,44 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create tokens
     tokens = auth_service.create_user_tokens(user)
 
-    logger.info("User %s logged in successfully", user.email)
-    return tokens
+    # Check client type for hybrid authentication
+    if client_type.lower() == "mobile":
+        # Mobile clients get full token response with expiry details
+        logger.info("User %s logged in successfully (mobile client)", user.email)
+        return tokens
+
+    # Web clients get HttpOnly cookies (default behavior)
+    response.set_cookie(
+        key="access_token",
+        value=tokens.access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=tokens.expires_in,
+        expires=tokens.access_token_expires_at,
+        path="/",
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens.refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=tokens.refresh_expires_in,
+        expires=tokens.refresh_token_expires_at,
+        path="/",
+    )
+
+    logger.info("User %s logged in successfully (web client)", user.email)
+    return WebLoginResponse(
+        message="Login successful",
+        user=WebLoginUser(email=user.email, role=user.role.value),
+    )
 
 
 @router.post("/auth/refresh", response_model=Token)

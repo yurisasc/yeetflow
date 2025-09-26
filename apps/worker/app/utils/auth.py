@@ -66,6 +66,10 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"  # noqa: S105 OAuth2 standard token type
+    expires_in: int  # Access token expiry in seconds (OAuth2 standard)
+    refresh_expires_in: int  # Refresh token expiry in seconds
+    access_token_expires_at: datetime  # Absolute expiry timestamp for mobile clients
+    refresh_token_expires_at: datetime  # Absolute expiry timestamp for mobile clients
 
 
 class TokenData(BaseModel):
@@ -74,6 +78,20 @@ class TokenData(BaseModel):
     user_id: UUID | None = None
     email: str | None = None
     role: UserRole | None = None
+
+
+class WebLoginUser(BaseModel):
+    """User data returned in web login response."""
+
+    email: str
+    role: UserRole
+
+
+class WebLoginResponse(BaseModel):
+    """Response model for web client login."""
+
+    message: str
+    user: WebLoginUser
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
