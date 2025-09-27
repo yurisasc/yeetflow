@@ -1,0 +1,27 @@
+{
+  "name": "@yeetflow/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "generate": "openapi-ts",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.84.3",
+    "@types/node": "^22.18.6",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
