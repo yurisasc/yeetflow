@@ -1,7 +1,10 @@
-// Security configuration for YeetFlow
-// Implements Content Security Policy and other security headers
-
 const scriptSrc: string[] = ["'self'"];
+
+const trustedSessionOrigins: string[] = [];
+
+if (process.env.NEXT_PUBLIC_TRUSTED_SESSION_ORIGIN) {
+  trustedSessionOrigins.push(process.env.NEXT_PUBLIC_TRUSTED_SESSION_ORIGIN);
+}
 
 if (process.env.NODE_ENV !== 'production') {
   // Next.js dev server injects inline scripts for HMR and RSC refresh
@@ -24,8 +27,10 @@ export const securityConfig = {
       'connect-src': [
         "'self'",
         process.env.WORKER_BASE_URL || 'http://localhost:8000',
+        ...trustedSessionOrigins,
         ...(process.env.NODE_ENV !== 'production' ? ['ws:', 'wss:'] : []),
       ],
+      'frame-src': ["'self'", ...trustedSessionOrigins],
       'frame-ancestors': ["'none'"],
       'form-action': ["'self'"],
       'base-uri': ["'self'"],
@@ -76,10 +81,10 @@ export class SecurityUtils {
    */
   static isValidJWT(token: string): boolean {
     if (!token || typeof token !== 'string') return false;
-    
+
     const parts = token.split('.');
     if (parts.length !== 3) return false;
-    
+
     try {
       // Validate each part is base64url encoded and ensure header/payload are JSON
       parts.forEach((part, index) => {
@@ -113,9 +118,14 @@ export class SecurityUtils {
     if (typeof window !== 'undefined' && window.crypto) {
       const array = new Uint8Array(32);
       window.crypto.getRandomValues(array);
-      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+      return Array.from(array, (byte) =>
+        byte.toString(16).padStart(2, '0'),
+      ).join('');
     }
     // Fallback for server-side rendering
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    return (
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15)
+    );
   }
 }

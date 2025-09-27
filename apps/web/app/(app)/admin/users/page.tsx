@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/providers/auth-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { isAdmin } from '@/lib/auth';
 import {
   Search,
   Users,
@@ -139,32 +139,33 @@ const statusOptions = [
 ];
 
 export default function UserManagementPage() {
+  const { isAdmin, isLoading } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isRoleChangeDialogOpen, setIsRoleChangeDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
 
-  const userIsAdmin = isAdmin();
-
   useEffect(() => {
     // Redirect non-admin users
-    if (!userIsAdmin) {
+    if (!isLoading && !isAdmin) {
       window.location.href = '/flows';
       return;
     }
 
     // Simulate loading
-    setTimeout(() => {
-      setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
-      setIsLoading(false);
-    }, 800);
-  }, [userIsAdmin]);
+    if (!isLoading) {
+      setTimeout(() => {
+        setUsers(mockUsers);
+        setFilteredUsers(mockUsers);
+        setIsPageLoading(false);
+      }, 800);
+    }
+  }, [isAdmin, isLoading]);
 
   useEffect(() => {
     let filtered = users;
@@ -277,7 +278,7 @@ export default function UserManagementPage() {
   const hasActiveFilters =
     searchQuery || roleFilter !== 'all' || statusFilter !== 'all';
 
-  if (!userIsAdmin) {
+  if (!isAdmin) {
     return null; // Will redirect in useEffect
   }
 
@@ -368,7 +369,7 @@ export default function UserManagementPage() {
 
       {/* Content */}
       <div className='container mx-auto px-6 py-8'>
-        {isLoading ? (
+        {isPageLoading ? (
           <div className='border border-border rounded-lg bg-card'>
             <Table>
               <TableHeader>
