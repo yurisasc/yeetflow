@@ -20,21 +20,25 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /.*tests\/e2e\/setup\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
+      testIgnore: '**/setup.spec.ts',
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
       dependencies: ['setup'],
+      testIgnore: '**/setup.spec.ts',
     },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
       dependencies: ['setup'],
+      testIgnore: '**/setup.spec.ts',
     },
   ],
   webServer: [
@@ -46,7 +50,7 @@ export default defineConfig({
     {
       // Use a dedicated E2E DB and clean slate on each run
       command:
-        'cd ../worker && rm -f yeetflow_e2e.db && E2E_SEED=true DATABASE_URL=sqlite:///yeetflow_e2e.db pnpm dev',
+        'cd ../worker && rm -f yeetflow_e2e.db && E2E_SEED=true DATABASE_URL=sqlite:///yeetflow_e2e.db STEEL_API_KEY="" pnpm dev',
       url: 'http://localhost:8000',
       reuseExistingServer,
     },

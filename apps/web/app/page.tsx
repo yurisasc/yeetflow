@@ -2,17 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAuthenticated } from '@/lib/auth';
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.push('/flows');
-    } else {
-      router.push('/login');
-    }
+    // Redirect to flows page - authentication is handled by middleware
+    router.push('/flows');
   }, [router]);
 
   return (
