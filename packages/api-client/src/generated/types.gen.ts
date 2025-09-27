@@ -442,10 +442,7 @@ export type WebLoginUser = {
      * Email
      */
     email: string;
-    /**
-     * Role
-     */
-    role: string;
+    role: UserRole;
 };
 
 export type ListRunsApiV1RunsGetData = {
@@ -717,7 +714,7 @@ export type LoginApiV1AuthLoginPostData = {
     body: BodyLoginApiV1AuthLoginPost;
     headers?: {
         /**
-         * Client type for hybrid authentication. 'web' returns cookies,'mobile' returns tokens in response body.
+         * X-Client-Type
          */
         'X-Client-Type'?: 'web' | 'mobile';
     };

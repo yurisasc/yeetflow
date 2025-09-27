@@ -1,6 +1,6 @@
 import type { CreateClientConfig } from "./generated/client";
 
-export const createClientConfig: CreateClientConfig = (config: any) => ({
-  ...config,
+export const createClientConfig: CreateClientConfig = (override) => ({
+  ...(override ?? {}),
   credentials: "include",
 });

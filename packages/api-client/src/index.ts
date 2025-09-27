@@ -19,8 +19,6 @@ export const unauthenticatedApiClient = createClient(createClientConfig({}));
 export const getAuthenticatedApiClient = (cookieHeader: string | undefined) => {
   return createClient({
     ...createClientConfig({}),
-    headers: {
-      Cookie: cookieHeader || "",
-    },
+    ...(cookieHeader ? { headers: { Cookie: cookieHeader } } : {}),
   });
 };
