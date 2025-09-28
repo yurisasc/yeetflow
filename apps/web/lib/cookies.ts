@@ -128,5 +128,8 @@ export function parseSetCookieHeader(
     }
   }
 
+  // Always strip upstream Domain when proxying to the web origin
+  delete options.domain;
+
   return { name, value, options };
 }

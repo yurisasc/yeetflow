@@ -106,12 +106,13 @@ export default function AdminUsersWithUI({
   const confirmRoleChange = useCallback(async () => {
     if (!selectedUser) return;
 
-    const previousUsers = users;
-    const optimisticUsers = users.map((user) =>
-      user.id === selectedUser.id ? { ...user, role: newRole } : user,
-    );
+    const previousRole = selectedUser.role;
 
-    setUsers(optimisticUsers);
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === selectedUser.id ? { ...user, role: newRole } : user,
+      ),
+    );
 
     try {
       const result = await updateUserRoleAction({
@@ -120,7 +121,13 @@ export default function AdminUsersWithUI({
       });
 
       if (!result.success) {
-        setUsers(previousUsers);
+        setUsers((prev) =>
+          prev.map((user) =>
+            user.id === selectedUser.id
+              ? { ...user, role: previousRole }
+              : user,
+          ),
+        );
         toast.error('Unable to update role', {
           description: result.error,
         });
@@ -135,13 +142,19 @@ export default function AdminUsersWithUI({
       setIsRoleChangeDialogOpen(false);
       setSelectedUser(null);
     } catch (error: unknown) {
-      setUsers(previousUsers);
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === selectedUser.id
+            ? { ...user, role: previousRole }
+            : user,
+        ),
+      );
       toast.error('Network error', {
         description: 'We could not update the user role. Please try again.',
       });
       setIsRoleChangeDialogOpen(true);
     }
-  }, [newRole, selectedUser, updateUserRoleAction, users]);
+  }, [newRole, selectedUser, updateUserRoleAction]);
 
   if (isLoading)
     return (

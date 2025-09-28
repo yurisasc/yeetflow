@@ -105,9 +105,10 @@ test.describe('Flows List', () => {
 
     // Verify no authentication tokens are exposed in client-side code
     const pageSource = await page.content();
-    expect(pageSource).not.toContain('authorization');
-    expect(pageSource).not.toContain('bearer');
-    expect(pageSource).not.toContain('token');
+    const normalizedSource = pageSource.toLowerCase();
+    expect(normalizedSource).not.toContain('authorization');
+    expect(normalizedSource).not.toContain('bearer');
+    expect(normalizedSource).not.toContain('token');
 
     // Verify cookies are used for authentication by checking BFF user call
     const meRespPromise = page.waitForResponse('**/api/auth/me', {
