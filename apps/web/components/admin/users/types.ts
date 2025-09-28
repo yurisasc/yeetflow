@@ -9,7 +9,4 @@ export type UserData = {
   runsCount: number;
 };
 
-export type FilterOption = {
-  value: string;
-  label: string;
-};
+export type { FilterOption } from '@/components/runs/types';

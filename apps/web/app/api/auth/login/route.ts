@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUnauthenticatedClient } from '@/lib/api';
-import { loginApiV1AuthLoginPost, type Token } from '@yeetflow/api-client';
+import { parseSetCookieHeader } from '@/lib/cookies';
+import { loginApiV1AuthLoginPost } from '@yeetflow/api-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,13 +26,25 @@ export async function POST(request: NextRequest) {
       throwOnError: true,
     });
 
-    // Forward cookies from worker to browser
     const nextResponse = NextResponse.json(response.data);
     const setCookieHeaders = response.response.headers.getSetCookie();
-    setCookieHeaders.forEach((cookie) => {
-      const [name, value] = cookie.split(';')[0].split('=');
-      nextResponse.cookies.set(name, value);
-    });
+
+    const proto = request.headers.get('x-forwarded-proto');
+    const isSecureRequest =
+      proto === 'https' || request.nextUrl.protocol === 'https:';
+
+    if (isSecureRequest) {
+      setCookieHeaders.forEach((cookieHeader) => {
+        nextResponse.headers.append('Set-Cookie', cookieHeader);
+      });
+    } else {
+      setCookieHeaders.forEach((cookieHeader) => {
+        const parsed = parseSetCookieHeader(cookieHeader, isSecureRequest);
+        if (parsed) {
+          nextResponse.cookies.set(parsed.name, parsed.value, parsed.options);
+        }
+      });
+    }
 
     return nextResponse;
   } catch (err: any) {

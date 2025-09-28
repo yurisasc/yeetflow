@@ -12,7 +12,7 @@ export function UsersHeader({ searchQuery, onSearchChange }: UsersHeaderProps) {
   return (
     <div className='border-b border-border bg-card/50'>
       <div className='container mx-auto px-6 py-6'>
-        <div className='flex items-center justify-between'>
+        <div className='flex flex-col gap-6 md:flex-row md:items-center md:justify-between'>
           <div>
             <h1 className='text-3xl font-bold text-foreground'>
               User Management
@@ -21,18 +21,20 @@ export function UsersHeader({ searchQuery, onSearchChange }: UsersHeaderProps) {
               Manage users and their roles
             </p>
           </div>
-          <div className='flex items-center space-x-4'>
-            <div className='relative'>
+          <div className='flex flex-col gap-4 md:flex-row md:items-center md:space-x-4 md:gap-0'>
+            <div className='relative w-full md:w-auto'>
               <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4' />
               <Input
                 placeholder='Search users...'
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className='pl-10 w-80 bg-input border-border'
+                className='pl-10 w-full md:w-80 bg-input border-border'
               />
             </div>
-
-            <Button disabled className='bg-primary hover:bg-primary/90'>
+            <Button
+              disabled
+              className='w-full md:w-auto bg-primary hover:bg-primary/90'
+            >
               <UserPlus className='w-4 h-4 mr-2' />
               Invite User
             </Button>

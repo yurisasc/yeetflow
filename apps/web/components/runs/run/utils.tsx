@@ -26,19 +26,28 @@ export const statusBadgeClass = (status: RunStatusSummary['status']) => {
 export const eventIcon = (type: RunEventType) => {
   switch (type) {
     case 'log':
-      return <Info className='w-4 h-4' />;
+      return <Info className='w-4 h-4' aria-hidden='true' />;
     case 'warning':
-      return <AlertCircle className='w-4 h-4 text-yellow-400' />;
+      return (
+        <AlertCircle className='w-4 h-4 text-yellow-400' aria-hidden='true' />
+      );
     case 'error':
-      return <AlertCircle className='w-4 h-4 text-red-400' />;
+      return (
+        <AlertCircle className='w-4 h-4 text-red-400' aria-hidden='true' />
+      );
     case 'checkpoint':
-      return <CheckCircle className='w-4 h-4 text-green-400' />;
+      return (
+        <CheckCircle className='w-4 h-4 text-green-400' aria-hidden='true' />
+      );
     case 'user_action':
-      return <User className='w-4 h-4 text-purple-400' />;
+      return <User className='w-4 h-4 text-purple-400' aria-hidden='true' />;
     default:
-      return <Info className='w-4 h-4' />;
+      return <Info className='w-4 h-4' aria-hidden='true' />;
   }
 };
 
 export const formatTime = (timestamp: string) =>
-  new Date(timestamp).toLocaleTimeString();
+  new Date(timestamp).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });

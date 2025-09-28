@@ -26,8 +26,12 @@ export async function POST(req: Request) {
     const user: UserRead = response.data!;
     return NextResponse.json(user, { status: 201 });
   } catch (err: any) {
-    const message =
-      typeof err === 'string' ? err : err?.message || 'Registration failed';
-    return NextResponse.json({ detail: message }, { status: 400 });
+    const detail =
+      err?.response?.data?.detail ??
+      err?.response?.body?.detail ??
+      (typeof err === 'string' ? err : err?.message) ??
+      'Registration failed';
+    const status = err?.response?.status ?? err?.status ?? 500;
+    return NextResponse.json({ detail }, { status });
   }
 }

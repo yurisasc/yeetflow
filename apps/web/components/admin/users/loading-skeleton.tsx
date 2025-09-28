@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function UsersLoadingSkeleton() {
   return (
     <div className='border border-border rounded-lg bg-card'>
-      <Table>
+      <Table aria-busy={true} aria-label='Loading users'>
         <TableHeader>
           <TableRow className='border-border'>
             <TableHead>User</TableHead>

@@ -38,7 +38,10 @@ export function UsersFilters({
       <div className='flex items-center justify-between'>
         <div className='flex items-center space-x-4'>
           <Select value={roleFilter} onValueChange={onRoleChange}>
-            <SelectTrigger className='w-40 bg-input border-border'>
+            <SelectTrigger
+              className='w-40 bg-input border-border'
+              aria-label='Role filter'
+            >
               <SelectValue placeholder='Role' />
             </SelectTrigger>
             <SelectContent>
@@ -51,7 +54,10 @@ export function UsersFilters({
           </Select>
 
           <Select value={statusFilter} onValueChange={onStatusChange}>
-            <SelectTrigger className='w-40 bg-input border-border'>
+            <SelectTrigger
+              className='w-40 bg-input border-border'
+              aria-label='Status filter'
+            >
               <SelectValue placeholder='Status' />
             </SelectTrigger>
             <SelectContent>

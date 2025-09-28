@@ -50,8 +50,8 @@ export default function RunDetailLayout({
   onToggleAdvanced,
   onSubmitHandoff,
 }: RunDetailLayoutProps) {
-  const timelineHeight = isFullscreen ? 'h-[calc(50vh-120px)]' : 'h-[400px]';
-  const iframeHeight = isFullscreen ? 'h-[calc(100vh-220px)]' : 'h-[600px]';
+  const timelineHeight = isFullscreen ? 'h-[calc(50vh_-_120px)]' : 'h-[400px]';
+  const iframeHeight = isFullscreen ? 'h-[calc(100vh_-_220px)]' : 'h-[600px]';
 
   return (
     <div className='min-h-screen bg-background'>

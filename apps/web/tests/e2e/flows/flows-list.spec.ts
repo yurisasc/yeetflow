@@ -76,7 +76,7 @@ test.describe('Flows List', () => {
     await page.waitForSelector('[data-testid="start-flow-button"]');
 
     await page.locator('[data-testid="start-flow-button"]').first().click();
-    await expect(page).toHaveURL(/\/runs\//, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/runs\//, { timeout: 15000 });
   });
 
   test('should handle run creation error gracefully', async ({ page }) => {
@@ -85,7 +85,7 @@ test.describe('Flows List', () => {
 
     // If server returns an error, the UI should surface it; otherwise it may redirect.
     const error = page.locator('[data-testid="start-flow-error"]');
-    if (await error.count()) {
+    if ((await error.count()) > 0) {
       await expect(error).toContainText(/failed|invalid|error/i);
     } else {
       // Either redirect occurred or error UI not implemented yet

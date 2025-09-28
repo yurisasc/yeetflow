@@ -17,9 +17,11 @@ export default function AccountWithAuth({ user }: Props) {
   const [editedEmail, setEditedEmail] = useState(user.email || '');
 
   useEffect(() => {
-    setEditedName(user.name || '');
-    setEditedEmail(user.email || '');
-  }, [user]);
+    if (!isEditing) {
+      setEditedName(user.name || '');
+      setEditedEmail(user.email || '');
+    }
+  }, [user, isEditing]);
 
   const onEdit = () => setIsEditing(true);
   const onSave = () => {

@@ -19,12 +19,18 @@ export function FlowsHeader({ searchQuery, onSearchChange }: FlowsHeaderProps) {
             </p>
           </div>
           <div className='relative'>
-            <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4' />
+            <Search className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4' />
             <Input
               placeholder='Search flows...'
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className='pl-10 w-80 bg-input border-border'
+              type='search'
+              aria-label='Search flows'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='none'
+              enterKeyHint='search'
+              className='pl-10 w-full sm:w-64 md:w-80 bg-input border-border'
             />
           </div>
         </div>

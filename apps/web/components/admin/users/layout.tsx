@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { FilterOption, UserData } from './types';
 import { UsersHeader } from './header';
 import { UsersFilters } from './filters';
@@ -18,7 +18,6 @@ export type UsersLayoutProps = {
   roleOptions: FilterOption[];
   statusOptions: FilterOption[];
   hasActiveFilters: boolean;
-  stats: { total: number; active: number; admins: number; pending: number };
   dialog: { open: boolean; user: UserData | null; newRole: 'admin' | 'user' };
   onSearchChange: (v: string) => void;
   onRoleChange: (v: string) => void;
@@ -40,7 +39,6 @@ export function UsersLayout({
   roleOptions,
   statusOptions,
   hasActiveFilters,
-  stats,
   dialog,
   onSearchChange,
   onRoleChange,
@@ -51,6 +49,21 @@ export function UsersLayout({
   onDialogOpenChange,
   onConfirmRoleChange,
 }: UsersLayoutProps) {
+  const stats = useMemo(
+    () =>
+      users.reduce(
+        (acc, user) => {
+          acc.total += 1;
+          if (user.status === 'active') acc.active += 1;
+          if (user.role === 'admin') acc.admins += 1;
+          if (user.status === 'pending') acc.pending += 1;
+          return acc;
+        },
+        { total: 0, active: 0, admins: 0, pending: 0 },
+      ),
+    [users],
+  );
+
   return (
     <div className='min-h-screen bg-background'>
       <UsersHeader searchQuery={searchQuery} onSearchChange={onSearchChange} />
@@ -81,10 +94,10 @@ export function UsersLayout({
         )}
 
         <UsersStatsCards
-          total={users.length}
-          active={users.filter((u) => u.status === 'active').length}
-          admins={users.filter((u) => u.role === 'admin').length}
-          pending={users.filter((u) => u.status === 'pending').length}
+          total={stats.total}
+          active={stats.active}
+          admins={stats.admins}
+          pending={stats.pending}
         />
       </div>
 

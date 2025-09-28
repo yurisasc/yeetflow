@@ -11,7 +11,7 @@ export default async function AccountPage() {
     client,
     throwOnError: true,
   });
-  const user = response.data as UserRead;
+  const user = response.data;
 
   return <AccountWithAuth user={user} />;
 }

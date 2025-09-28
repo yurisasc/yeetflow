@@ -21,7 +21,7 @@ export function RunHeader({ status }: RunHeaderProps) {
               className={statusBadgeClass(status.status)}
               data-testid='run-status'
             >
-              {status.status.replace('_', ' ')}
+              {status.status.split('_').join(' ')}
             </Badge>
           </div>
           <div className='flex items-center space-x-2 text-sm text-muted-foreground'>

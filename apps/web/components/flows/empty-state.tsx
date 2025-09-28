@@ -10,7 +10,7 @@ export function EmptyFlowsState({ onClearSearch }: EmptyFlowsStateProps) {
   return (
     <div className='text-center py-16'>
       <div className='w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4'>
-        <Search className='w-8 h-8 text-muted-foreground' />
+        <Search aria-hidden='true' className='w-8 h-8 text-muted-foreground' />
       </div>
       <h3 className='text-lg font-semibold text-foreground mb-2'>
         No flows found
@@ -20,6 +20,7 @@ export function EmptyFlowsState({ onClearSearch }: EmptyFlowsStateProps) {
         variant='outline'
         onClick={onClearSearch}
         className='border-border'
+        type='button'
       >
         Clear search
       </Button>

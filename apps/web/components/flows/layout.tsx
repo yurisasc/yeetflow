@@ -3,7 +3,7 @@ import { FlowsHeader } from './header';
 import { FlowsGrid } from './grid';
 import type { FlowListItem } from './types';
 
-type StartFlowFormAction = (
+export type StartFlowFormAction = (
   prevState: { error: string | null },
   formData: FormData,
 ) => Promise<{ error: string | null }>;

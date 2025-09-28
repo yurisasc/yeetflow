@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { SESSION_COOKIE_NAME, REFRESH_COOKIE_NAME } from '@/lib/constants';
 import { login, logout } from '../../helpers/auth';
 
 test.describe('Authentication Logout E2E', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await expect(page).toHaveURL('/flows');
+    await expect(page).toHaveURL(/\/flows(\?.*)?$/);
   });
 
   test('user can log out and session is cleared', async ({ page }) => {
@@ -45,8 +46,8 @@ test.describe('Authentication Logout E2E', () => {
 
     // Check that auth cookies are cleared
     const finalCookies = await page.context().cookies();
-    const authCookies = finalCookies.filter(
-      (c) => c.name === 'access_token' || c.name === 'refresh_token',
+    const authCookies = finalCookies.filter((c) =>
+      [SESSION_COOKIE_NAME, REFRESH_COOKIE_NAME].includes(c.name),
     );
     expect(authCookies.length).toBe(0);
   });

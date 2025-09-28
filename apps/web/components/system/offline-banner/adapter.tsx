@@ -10,7 +10,7 @@ export function OfflineBannerAdapter() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setShowBanner(false);
+      setShowBanner(true);
     };
 
     const handleOffline = () => {

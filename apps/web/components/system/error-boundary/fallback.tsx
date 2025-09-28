@@ -17,7 +17,11 @@ export function ErrorFallback({
   reset: () => void;
 }) {
   return (
-    <div className='min-h-[400px] flex items-center justify-center p-4'>
+    <div
+      className='min-h-[400px] flex items-center justify-center p-4'
+      role='alert'
+      aria-live='assertive'
+    >
       <Card className='border-border bg-card max-w-md w-full'>
         <CardHeader className='text-center space-y-2'>
           <div className='w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-2'>
@@ -34,7 +38,7 @@ export function ErrorFallback({
             <RefreshCw className='w-4 h-4 mr-2' />
             Try Again
           </Button>
-          {error && (
+          {process.env.NODE_ENV === 'development' && error && (
             <details className='mt-4 text-left'>
               <summary className='text-sm text-muted-foreground cursor-pointer hover:text-foreground'>
                 Error Details

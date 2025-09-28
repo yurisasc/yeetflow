@@ -60,7 +60,7 @@ export function RunsCardsList({ runs }: RunsCardsListProps) {
                   </div>
                 )}
                 <Badge className={getStatusColor(run.status)}>
-                  {run.status.replace('_', ' ')}
+                  {run.status.replaceAll('_', ' ')}
                 </Badge>
               </div>
             </div>
@@ -88,7 +88,9 @@ export function RunsCardsList({ runs }: RunsCardsListProps) {
                 <div className='w-full bg-secondary rounded-full h-2'>
                   <div
                     className='bg-primary h-2 rounded-full transition-all'
-                    style={{ width: `${run.progress}%` }}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, run.progress))}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -128,10 +130,22 @@ export function RunsCardsList({ runs }: RunsCardsListProps) {
                               </div>
                             </div>
                             <div className='flex items-center space-x-1'>
-                              <Button variant='ghost' size='sm'>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                disabled
+                                aria-disabled='true'
+                                title='Not available'
+                              >
                                 <Eye className='w-4 h-4' />
                               </Button>
-                              <Button variant='ghost' size='sm'>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                disabled
+                                aria-disabled='true'
+                                title='Not available'
+                              >
                                 <Download className='w-4 h-4' />
                               </Button>
                             </div>
@@ -141,6 +155,9 @@ export function RunsCardsList({ runs }: RunsCardsListProps) {
                           <Button
                             variant='outline'
                             className='w-full border-border bg-transparent'
+                            disabled
+                            aria-disabled='true'
+                            title='Not available'
                           >
                             <Download className='w-4 h-4 mr-2' />
                             Download All
@@ -150,15 +167,16 @@ export function RunsCardsList({ runs }: RunsCardsListProps) {
                     </SheetContent>
                   </Sheet>
                 )}
-                <Link href={`/runs/${run.id}`}>
-                  <Button
-                    variant='outline'
-                    className='border-border bg-transparent'
-                  >
+                <Button
+                  asChild
+                  variant='outline'
+                  className='border-border bg-transparent'
+                >
+                  <Link href={`/runs/${run.id}`}>
                     <Eye className='w-4 h-4 mr-2' />
                     View Details
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </div>
           </CardContent>

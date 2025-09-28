@@ -53,7 +53,7 @@ export function UsersTable({ users, onCopy, onChangeRole }: UsersTableProps) {
                 <div className='flex items-center space-x-3'>
                   <Avatar className='h-8 w-8'>
                     <AvatarFallback className='bg-primary text-primary-foreground text-sm'>
-                      {user.name.charAt(0)}
+                      {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
@@ -85,7 +85,7 @@ export function UsersTable({ users, onCopy, onChangeRole }: UsersTableProps) {
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant='ghost' size='sm'>
+                    <Button variant='ghost' size='sm' aria-label='More actions'>
                       <MoreHorizontal className='w-4 h-4' />
                     </Button>
                   </DropdownMenuTrigger>

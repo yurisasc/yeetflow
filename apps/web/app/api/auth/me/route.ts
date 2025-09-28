@@ -11,8 +11,20 @@ export async function GET() {
     });
 
     const user = response.data;
-    return NextResponse.json(user);
-  } catch (err: any) {
-    return NextResponse.json({ detail: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(user, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        Vary: 'Cookie',
+      },
+    });
+  } catch (err: unknown) {
+    const status =
+      (typeof err === 'object' &&
+        err &&
+        // @ts-expect-error best-effort extraction from client error
+        (err.status || err.response?.status)) ||
+      401;
+    const message = status === 401 ? 'Unauthorized' : 'Failed to load user';
+    return NextResponse.json({ detail: message }, { status });
   }
 }

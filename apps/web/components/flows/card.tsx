@@ -10,11 +10,7 @@ import {
 import { Play, FileText } from 'lucide-react';
 import type { FlowListItem } from './types';
 import { useFormStatus } from 'react-dom';
-
-type StartFlowFormAction = (
-  prevState: { error: string | null },
-  formData: FormData,
-) => Promise<{ error: string | null }>;
+import type { StartFlowFormAction } from './layout';
 
 type FlowCardProps = {
   flow: FlowListItem;

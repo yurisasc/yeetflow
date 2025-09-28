@@ -63,6 +63,12 @@ export function LoginForm({
               required
               className='bg-input border-border'
               data-testid='email-input'
+              name='email'
+              autoComplete='email'
+              autoCapitalize='none'
+              autoCorrect='off'
+              inputMode='email'
+              spellCheck={false}
             />
           </div>
 
@@ -77,6 +83,9 @@ export function LoginForm({
               required
               className='bg-input border-border'
               data-testid='password-input'
+              name='password'
+              autoComplete='current-password'
+              spellCheck={false}
             />
           </div>
 

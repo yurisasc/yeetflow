@@ -15,7 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SecurityUtils } from '@/lib/security';
 import { useAuth } from '@/providers/auth-provider';
 import {
   Zap,
@@ -26,6 +25,7 @@ import {
   Users,
   ChevronDown,
 } from 'lucide-react';
+import { SecurityUtils } from '@/lib/security';
 
 interface NavigationItem {
   name: string;
@@ -149,7 +149,7 @@ export function Sidebar({ className }: SidebarProps) {
                     <>
                       <div className='flex items-center space-x-2'>
                         <p className='text-sm font-medium text-foreground truncate'>
-                          {SecurityUtils.sanitizeInput(user?.name || '')}
+                          {user?.name || ''}
                         </p>
                         <Badge
                           variant={
@@ -157,7 +157,11 @@ export function Sidebar({ className }: SidebarProps) {
                           }
                           className='text-xs'
                         >
-                          {user?.role === 'admin' ? 'Admin' : 'User'}
+                          {user?.role === 'admin'
+                            ? 'Admin'
+                            : user
+                              ? 'User'
+                              : 'Guest'}
                         </Badge>
                       </div>
                       <p className='text-xs text-muted-foreground truncate'>
@@ -181,13 +185,15 @@ export function Sidebar({ className }: SidebarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={logout}
-              className='hover:bg-accent text-red-400'
-            >
-              <LogOut className='mr-2 h-4 w-4' />
-              <span>Sign out</span>
-            </DropdownMenuItem>
+            {user && (
+              <DropdownMenuItem
+                onClick={logout}
+                className='hover:bg-accent text-red-400'
+              >
+                <LogOut className='mr-2 h-4 w-4' />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

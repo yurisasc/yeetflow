@@ -1,17 +1,29 @@
+import 'server-only';
+
 import {
   createClient,
   refreshAccessTokenApiV1AuthRefreshPost,
 } from '@yeetflow/api-client';
 import { cookies } from 'next/headers';
 import type { Token } from '@yeetflow/api-client';
+import { SESSION_COOKIE_NAME, REFRESH_COOKIE_NAME } from '@/lib/constants';
 
 // Server-side client creators with proper baseUrl configuration
 const getBaseUrl = () =>
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 function isRefreshUrl(input: RequestInfo | URL): boolean {
-  const url = typeof input === 'string' ? input : input.toString();
-  return url.includes('/api/v1/auth/refresh');
+  try {
+    let urlStr: string;
+    if (typeof input === 'string') urlStr = input;
+    else if (input instanceof URL) urlStr = input.toString();
+    else if (typeof Request !== 'undefined' && input instanceof Request)
+      urlStr = input.url;
+    else urlStr = String(input);
+    return urlStr.includes('/api/v1/auth/refresh');
+  } catch {
+    return false;
+  }
 }
 
 export const createAPIClient = () => {
@@ -21,7 +33,7 @@ export const createAPIClient = () => {
     baseUrl,
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       const cookieStore = await cookies();
-      const accessToken = cookieStore.get('access_token')?.value;
+      const accessToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
       const headers = new Headers(init?.headers || {});
 
@@ -44,44 +56,53 @@ export const createAPIClient = () => {
         return response;
       }
 
-      const refreshToken = cookieStore.get('refresh_token')?.value;
+      const refreshToken = cookieStore.get(REFRESH_COOKIE_NAME)?.value;
       if (!refreshToken) return response;
 
-      const bareClient = createClient({ baseUrl, fetch: globalThis.fetch });
-      const refreshResult = await refreshAccessTokenApiV1AuthRefreshPost({
-        client: bareClient,
-        body: { refresh_token: refreshToken },
-        throwOnError: true,
-      });
-
-      const token: Token = refreshResult.data!;
-
-      const isProd = process.env.NODE_ENV === 'production';
-      // Update cookies for the outgoing response
-      cookieStore.set('access_token', token.access_token, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: token.expires_in,
-      });
-      if (token.refresh_token) {
-        cookieStore.set('refresh_token', token.refresh_token, {
-          httpOnly: true,
-          secure: isProd,
-          sameSite: 'lax',
-          path: '/',
-          maxAge: token.refresh_expires_in,
+      try {
+        const bareClient = createClient({ baseUrl, fetch: globalThis.fetch });
+        const refreshResult = await refreshAccessTokenApiV1AuthRefreshPost({
+          client: bareClient,
+          body: { refresh_token: refreshToken },
+          throwOnError: true,
         });
+
+        const token: Token = refreshResult.data!;
+        const isProd = process.env.NODE_ENV === 'production';
+
+        // Best-effort cookie updates (may be disallowed in RSC render)
+        try {
+          cookieStore.set(SESSION_COOKIE_NAME, token.access_token, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: token.expires_in,
+          });
+          if (token.refresh_token) {
+            cookieStore.set(REFRESH_COOKIE_NAME, token.refresh_token, {
+              httpOnly: true,
+              secure: isProd,
+              sameSite: 'lax',
+              path: '/',
+              maxAge: token.refresh_expires_in,
+            });
+          }
+        } catch {
+          // ignore write errors in non-mutable contexts
+        }
+
+        // Retry original request once with the new access token
+        const retryHeaders = new Headers(headers);
+        retryHeaders.set('Authorization', `Bearer ${token.access_token}`);
+        retryHeaders.set('X-Retry-After-Refresh', '1');
+
+        response = await fetch(input, { ...reqInit, headers: retryHeaders });
+        return response;
+      } catch {
+        // Refresh failed — return original 401
+        return response;
       }
-
-      // Retry original request once with the new access token
-      const retryHeaders = new Headers(headers);
-      retryHeaders.set('Authorization', `Bearer ${token.access_token}`);
-      retryHeaders.set('X-Retry-After-Refresh', '1');
-
-      response = await fetch(input, { ...reqInit, headers: retryHeaders });
-      return response;
     },
   });
 };

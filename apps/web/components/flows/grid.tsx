@@ -2,11 +2,7 @@ import React from 'react';
 import { FlowCard } from './card';
 import { EmptyFlowsState } from './empty-state';
 import type { FlowListItem } from './types';
-
-type StartFlowFormAction = (
-  prevState: { error: string | null },
-  formData: FormData,
-) => Promise<{ error: string | null }>;
+import type { StartFlowFormAction } from './layout';
 
 type FlowsGridProps = {
   flows: FlowListItem[];

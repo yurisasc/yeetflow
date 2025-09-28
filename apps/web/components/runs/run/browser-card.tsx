@@ -33,6 +33,7 @@ export function RunBrowserCard({
               size='sm'
               onClick={onOpenInNewTab}
               className='border-border'
+              aria-label='Open in new tab'
             >
               <ExternalLink className='w-4 h-4 mr-2' />
               Open in New Tab
@@ -42,6 +43,7 @@ export function RunBrowserCard({
               size='sm'
               onClick={onToggleFullscreen}
               className='border-border'
+              aria-label='Toggle fullscreen'
             >
               <Maximize2 className='w-4 h-4' />
             </Button>
@@ -85,7 +87,9 @@ export function RunBrowserCard({
               data-testid='session-iframe'
               onError={onIframeError}
               onLoad={onIframeLoad}
-              sandbox='allow-same-origin allow-scripts allow-forms allow-popups'
+              title='Embedded browser session'
+              referrerPolicy='no-referrer'
+              sandbox='allow-scripts allow-forms allow-popups'
             />
           </div>
         )}

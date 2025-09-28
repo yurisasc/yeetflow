@@ -50,7 +50,7 @@ export function RunsTableList({
             <TableRow key={run.id} className='border-border hover:bg-muted/50'>
               <TableCell>
                 <Badge className={getStatusColor(run.status)}>
-                  {run.status.replace('_', ' ')}
+                  {run.status.replaceAll('_', ' ')}
                 </Badge>
               </TableCell>
               <TableCell className='font-medium text-foreground'>
@@ -65,6 +65,7 @@ export function RunsTableList({
                     variant='ghost'
                     size='sm'
                     onClick={() => onCopyId(run.id)}
+                    aria-label='Copy run ID'
                   >
                     <Copy className='w-3 h-3' />
                   </Button>
@@ -103,14 +104,23 @@ export function RunsTableList({
               </TableCell>
               <TableCell>
                 <div className='flex items-center space-x-2'>
-                  <Link href={`/runs/${run.id}`}>
-                    <Button variant='ghost' size='sm'>
+                  <Button
+                    asChild
+                    variant='ghost'
+                    size='sm'
+                    aria-label='View run'
+                  >
+                    <Link href={`/runs/${run.id}`}>
                       <Eye className='w-4 h-4' />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant='ghost' size='sm'>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        aria-label='More actions'
+                      >
                         <MoreHorizontal className='w-4 h-4' />
                       </Button>
                     </DropdownMenuTrigger>
@@ -118,15 +128,21 @@ export function RunsTableList({
                       align='end'
                       className='bg-popover border-border'
                     >
-                      <DropdownMenuItem>
-                        <ExternalLink className='w-4 h-4 mr-2' />
-                        Open in new tab
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href={`/runs/${run.id}`}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                        >
+                          <ExternalLink className='w-4 h-4 mr-2' />
+                          Open in new tab
+                        </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onCopyId(run.id)}>
+                      <DropdownMenuItem onSelect={() => onCopyId(run.id)}>
                         <Copy className='w-4 h-4 mr-2' />
                         Copy ID
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onCopyLink(run.id)}>
+                      <DropdownMenuItem onSelect={() => onCopyLink(run.id)}>
                         <Copy className='w-4 h-4 mr-2' />
                         Copy link
                       </DropdownMenuItem>

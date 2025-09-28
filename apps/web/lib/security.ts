@@ -1,41 +1,27 @@
-const scriptSrc: string[] = ["'self'"];
-
 const trustedSessionOrigins: string[] = [];
 
 if (process.env.NEXT_PUBLIC_TRUSTED_SESSION_ORIGIN) {
   trustedSessionOrigins.push(process.env.NEXT_PUBLIC_TRUSTED_SESSION_ORIGIN);
 }
 
-if (process.env.NODE_ENV !== 'production') {
-  // Next.js dev server injects inline scripts for HMR and RSC refresh
-  scriptSrc.push("'unsafe-eval'");
-  scriptSrc.push("'unsafe-inline'");
-}
-
 export const securityConfig = {
   contentSecurityPolicy: {
     directives: {
-      'default-src': ["'self'"],
-      'script-src': scriptSrc,
-      'style-src': [
-        "'self'",
-        "'unsafe-inline'", // Required for styled-components/Next.js
-        // TODO: Remove 'unsafe-inline' in production
-      ],
-      'img-src': ["'self'", 'data:', 'https:'],
-      'font-src': ["'self'", 'data:'],
+      'default-src': ['self'],
+      'script-src': ['self', 'unsafe-inline'],
+      'style-src': ['self', 'unsafe-inline'], // Required for styled-components/Next.js
+      'img-src': ['self', 'data:', 'https:'],
+      'font-src': ['self', 'data:'],
       'connect-src': [
-        "'self'",
+        'self',
         process.env.WORKER_BASE_URL || 'http://localhost:8000',
         ...trustedSessionOrigins,
         ...(process.env.NODE_ENV !== 'production' ? ['ws:', 'wss:'] : []),
       ],
-      'frame-src': ["'self'", ...trustedSessionOrigins],
-      'frame-ancestors': ["'none'"],
-      'form-action': ["'self'"],
-      'base-uri': ["'self'"],
-      'object-src': ["'none'"],
-      'script-src-attr': ["'none'"], // Disallow inline event handlers
+      'frame-src': ['self', ...trustedSessionOrigins],
+      'frame-ancestors': ['none'],
+      'object-src': ['none'],
+      'script-src-attr': ['none'], // Disallow inline event handlers
     },
   },
 
@@ -52,10 +38,13 @@ export const securityConfig = {
  * Generates CSP header string from directives
  */
 export function generateCSPHeader(): string {
-  const directives = securityConfig.contentSecurityPolicy.directives;
-  return Object.entries(directives)
-    .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
-    .join('; ');
+  // const directives = securityConfig.contentSecurityPolicy.directives;
+  // return Object.entries(directives)
+  //   .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
+  //   .join('; ');
+  // TODO: The CSP currently causes a lot of issues with the prod app, so it's disabled for now.
+  //       Revisit this in the future.
+  return '';
 }
 
 /**
