@@ -47,23 +47,22 @@ export default function RunDetailLayout({
   onToggleAdvanced,
   onSubmitHandoff,
 }: RunDetailLayoutProps) {
-  const timelineHeight = isFullscreen ? 'h-[calc(50vh_-_120px)]' : 'h-[465px]';
-  const iframeHeight = isFullscreen ? 'h-[calc(100vh_-_220px)]' : 'h-full';
+  const timelineHeight = isFullscreen ? 'h-[calc(50dvh_-_120px)]' : 'h-[465px]';
+  const iframeHeight = isFullscreen ? 'h-[calc(100dvh_-_200px)]' : 'h-full';
 
   return (
     <div className='min-h-screen bg-background'>
       <RunHeader status={status} />
 
       <div className='container mx-auto px-6 py-6'>
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh_-_200px)]'>
-          <div className='lg:col-span-1 flex flex-col gap-6'>
+        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[calc(100dvh_-_200px)] lg:h-[calc(100dvh_-_200px)]'>
+          <div className='lg:col-span-1 flex flex-col gap-6 min-h-0'>
             <RunStatusCard status={status} />
-            <div className='flex-1'>
-              <RunTimelineCard events={events} heightClass='h-full' />
+            <div className='flex-1 min-h-0'>
+              <RunTimelineCard events={events} heightClass={timelineHeight} />
             </div>
           </div>
-
-          <div className='lg:col-span-2 h-full'>
+          <div className='lg:col-span-2 h-full min-h-0'>
             <RunBrowserCard
               embeddedUrl={embeddedUrl}
               iframeError={iframeError}

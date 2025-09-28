@@ -42,6 +42,9 @@ export const eventIcon = (type: RunEventType) => {
   }
 };
 
+export const formatStatusDisplay = (status: string) =>
+  status.replace(/_/g, ' ');
+
 export const formatTime = (timestamp: string) =>
   new Date(timestamp).toLocaleTimeString(undefined, {
     hour: '2-digit',

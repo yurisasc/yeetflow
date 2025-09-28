@@ -12,7 +12,7 @@ export type RunTimelineCardProps = {
 
 export function RunTimelineCard({
   events,
-  heightClass = 'h-[400px]',
+  heightClass = '',
 }: RunTimelineCardProps) {
   return (
     <Card className='border-border bg-card h-full flex flex-col'>
@@ -20,7 +20,7 @@ export function RunTimelineCard({
         <CardTitle className='text-lg'>Timeline</CardTitle>
       </CardHeader>
       <CardContent className='p-0 flex-1'>
-        <ScrollArea className={`${heightClass} px-6`}>
+        <ScrollArea className={`${heightClass || 'h-full'} px-6`}>
           <div className='space-y-4'>
             {events.map((event) => (
               <div key={event.id} className='flex items-start space-x-3'>

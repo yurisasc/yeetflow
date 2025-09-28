@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import type { RunStatusSummary } from '../types';
-import { statusBadgeClass } from './utils';
+import { statusBadgeClass, formatStatusDisplay } from './utils';
 
 export type RunStatusCardProps = {
   status: RunStatusSummary;
@@ -13,7 +13,7 @@ export type RunStatusCardProps = {
 export function RunStatusCard({ status }: RunStatusCardProps) {
   return (
     <Card className='border-border bg-card'>
-      <CardHeader>
+      <CardHeader className='pb-3'>
         <CardTitle className='text-lg'>Run Status</CardTitle>
       </CardHeader>
       <CardContent className='space-y-4'>
@@ -23,7 +23,7 @@ export function RunStatusCard({ status }: RunStatusCardProps) {
             className={statusBadgeClass(status.status)}
             data-testid='run-status'
           >
-            {status.status.split('_').join(' ')}
+            {formatStatusDisplay(status.status)}
           </Badge>
         </div>
         <div>
