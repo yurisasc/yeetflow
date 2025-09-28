@@ -47,7 +47,7 @@ export default function RunDetailLayout({
   onToggleAdvanced,
   onSubmitHandoff,
 }: RunDetailLayoutProps) {
-  const timelineHeight = isFullscreen ? 'h-[calc(50dvh_-_120px)]' : 'h-[465px]';
+  const timelineHeight = isFullscreen ? 'h-full' : 'h-[465px] lg:h-full';
   const iframeHeight = isFullscreen ? 'h-[calc(100dvh_-_200px)]' : 'h-full';
 
   return (
