@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UsersLayout } from '@/components/admin/users/layout';
 import type { FilterOption, UserData } from '@/components/admin/users/types';
 import { useAuth } from '@/providers/auth-provider';
+import { Loader2 } from 'lucide-react';
 
 type AdminUsersWithUIProps = {
   usersList: UserData[];
@@ -21,8 +22,10 @@ export default function AdminUsersWithUI({
   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'active' | 'inactive' | 'pending'
+  >('all');
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isRoleChangeDialogOpen, setIsRoleChangeDialogOpen] = useState(false);
@@ -66,22 +69,39 @@ export default function AdminUsersWithUI({
     setStatusFilter('all');
   };
 
-  const handleCopy = async (text: string) => {
+  const handleRoleFilterChange = useCallback((value: string) => {
+    if (value === 'admin' || value === 'user' || value === 'all') {
+      setRoleFilter(value);
+    }
+  }, []);
+
+  const handleStatusFilterChange = useCallback((value: string) => {
+    if (
+      value === 'active' ||
+      value === 'inactive' ||
+      value === 'pending' ||
+      value === 'all'
+    ) {
+      setStatusFilter(value);
+    }
+  }, []);
+
+  const handleCopy = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       // TODO: consider toast feedback on success
     } catch {
       // TODO: surface failure feedback for the user
     }
-  };
+  }, []);
 
-  const handleRoleChange = (user: UserData) => {
+  const handleRoleChange = useCallback((user: UserData) => {
     setSelectedUser(user);
     setNewRole(user.role === 'admin' ? 'user' : 'admin');
     setIsRoleChangeDialogOpen(true);
-  };
+  }, []);
 
-  const confirmRoleChange = () => {
+  const confirmRoleChange = useCallback(() => {
     if (selectedUser) {
       setUsers((prev) =>
         prev.map((u) =>
@@ -91,9 +111,18 @@ export default function AdminUsersWithUI({
       setIsRoleChangeDialogOpen(false);
       setSelectedUser(null);
     }
-  };
+  }, [newRole, selectedUser]);
 
-  if (isLoading) return null;
+  if (isLoading)
+    return (
+      <div className='flex h-full w-full flex-col items-center justify-center gap-3 py-16 text-center'>
+        <Loader2
+          className='h-6 w-6 animate-spin text-muted-foreground'
+          aria-hidden='true'
+        />
+        <p className='text-sm text-muted-foreground'>Checking permissions…</p>
+      </div>
+    );
   if (!isAdmin) return null;
 
   return (
@@ -111,8 +140,8 @@ export default function AdminUsersWithUI({
       }
       dialog={{ open: isRoleChangeDialogOpen, user: selectedUser, newRole }}
       onSearchChange={setSearchQuery}
-      onRoleChange={setRoleFilter}
-      onStatusChange={setStatusFilter}
+      onRoleChange={handleRoleFilterChange}
+      onStatusChange={handleStatusFilterChange}
       onClearFilters={clearFilters}
       onCopy={handleCopy}
       onChangeRole={handleRoleChange}

@@ -12,11 +12,12 @@ export function middleware(request: NextRequest) {
 
   // Check if this is an auth route
   const isAuthRoute = authRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 
   // Get the access token from cookies
   const accessToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const csp = generateCSPHeader();
 
   // If accessing protected route without token, redirect to login
   if (!isAuthRoute && !accessToken) {
@@ -27,7 +28,7 @@ export function middleware(request: NextRequest) {
     Object.entries(securityConfig.headers).forEach(([key, value]) => {
       res.headers.set(key, value);
     });
-    res.headers.set('Content-Security-Policy', generateCSPHeader());
+    if (csp) res.headers.set('Content-Security-Policy', csp);
     return res;
   }
 
@@ -37,7 +38,7 @@ export function middleware(request: NextRequest) {
     Object.entries(securityConfig.headers).forEach(([key, value]) => {
       res.headers.set(key, value);
     });
-    res.headers.set('Content-Security-Policy', generateCSPHeader());
+    if (csp) res.headers.set('Content-Security-Policy', csp);
     return res;
   }
 
@@ -46,8 +47,7 @@ export function middleware(request: NextRequest) {
     response.headers.set(key, value);
   });
 
-  // Add Content Security Policy
-  response.headers.set('Content-Security-Policy', generateCSPHeader());
+  if (csp) response.headers.set('Content-Security-Policy', csp);
 
   return response;
 }

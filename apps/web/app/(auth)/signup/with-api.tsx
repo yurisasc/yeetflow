@@ -18,7 +18,6 @@ export default function SignupWithApi({ redirectTo }: { redirectTo?: string }) {
     if (isSubmitting) {
       return;
     }
-    setIsSubmitting(true);
     setError(null);
     if (password !== confirmPassword) {
       setError('Passwords do not match');

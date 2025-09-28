@@ -37,14 +37,14 @@ export const securityConfig = {
 /**
  * Generates CSP header string from directives
  */
-export function generateCSPHeader(): string {
+export function generateCSPHeader(): string | undefined {
   // const directives = securityConfig.contentSecurityPolicy.directives;
   // return Object.entries(directives)
   //   .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
   //   .join('; ');
   // TODO: The CSP currently causes a lot of issues with the prod app, so it's disabled for now.
   //       Revisit this in the future.
-  return '';
+  return undefined;
 }
 
 /**
@@ -98,23 +98,5 @@ export class SecurityUtils {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * Creates a secure random string for CSRF tokens
-   */
-  static generateCSRFToken(): string {
-    if (typeof window !== 'undefined' && window.crypto) {
-      const array = new Uint8Array(32);
-      window.crypto.getRandomValues(array);
-      return Array.from(array, (byte) =>
-        byte.toString(16).padStart(2, '0'),
-      ).join('');
-    }
-    // Fallback for server-side rendering
-    return (
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15)
-    );
   }
 }

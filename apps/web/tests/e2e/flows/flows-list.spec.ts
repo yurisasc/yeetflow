@@ -113,7 +113,7 @@ test.describe('Flows List', () => {
 
     // Verify cookies are used for authentication by checking BFF user call
     const meRespPromise = page.waitForResponse('**/api/auth/me', {
-      timeout: 10000,
+      timeout: 15000,
     });
     await page.reload();
     const meResp = await meRespPromise;

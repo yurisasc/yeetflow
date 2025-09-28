@@ -33,6 +33,9 @@ export function LoginForm({
 }: LoginFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) {
+      return;
+    }
     onSubmit();
   };
 

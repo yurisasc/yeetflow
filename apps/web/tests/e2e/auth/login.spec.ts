@@ -39,7 +39,7 @@ test.describe('Authentication Login E2E', () => {
     );
 
     // Verify no redirect to flows
-    await expect(page).not.toHaveURL('/flows');
+    await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
   });
 
   test('login redirects to protected page after success', async ({ page }) => {

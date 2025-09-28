@@ -13,8 +13,8 @@ export type UsersLayoutProps = {
   users: UserData[];
   filteredUsers: UserData[];
   searchQuery: string;
-  roleFilter: string;
-  statusFilter: string;
+  roleFilter: 'all' | 'admin' | 'user';
+  statusFilter: 'all' | 'active' | 'inactive' | 'pending';
   roleOptions: FilterOption[];
   statusOptions: FilterOption[];
   hasActiveFilters: boolean;

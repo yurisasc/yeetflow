@@ -18,7 +18,7 @@ export function parseSetCookieHeader(
     .map((part) => part.trim())
     .filter(Boolean);
 
-  if (!nameValue) return null;
+  if (!nameValue || !nameValue.includes('=')) return null;
 
   const [rawName, ...rawValueParts] = nameValue.split('=');
   const name = rawName ?? '';
@@ -42,7 +42,11 @@ export function parseSetCookieHeader(
       case 'samesite':
         if (attrValue) {
           const sameSite = attrValue.toLowerCase();
-          if (sameSite === 'lax' || sameSite === 'strict' || sameSite === 'none') {
+          if (
+            sameSite === 'lax' ||
+            sameSite === 'strict' ||
+            sameSite === 'none'
+          ) {
             requestedSameSite = sameSite;
           }
         }
@@ -57,16 +61,20 @@ export function parseSetCookieHeader(
         break;
       case 'expires':
         if (attrValue) {
-          const expires = new Date(attrValue);
-          if (!Number.isNaN(expires.valueOf())) {
-            options.expires = expires;
+          const timestamp = Date.parse(attrValue);
+          if (!Number.isNaN(timestamp)) {
+            options.expires = new Date(timestamp);
           }
         }
         break;
       case 'priority':
         if (attrValue) {
           const priority = attrValue.toLowerCase();
-          if (priority === 'low' || priority === 'medium' || priority === 'high') {
+          if (
+            priority === 'low' ||
+            priority === 'medium' ||
+            priority === 'high'
+          ) {
             options.priority = priority;
           }
         }
@@ -93,6 +101,10 @@ export function parseSetCookieHeader(
     delete options.secure;
     if (options.sameSite === 'none') {
       options.sameSite = 'lax';
+    }
+    // CHIPS: Partitioned requires Secure + SameSite=None; remove in dev/insecure.
+    if (options.partitioned) {
+      delete options.partitioned;
     }
   }
 
