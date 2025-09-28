@@ -16,9 +16,7 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:auth": "playwright test apps/web/tests/e2e/auth*",
-    "test:flows": "playwright test apps/web/tests/e2e/flows*",
-    "test:runs": "playwright test apps/web/tests/e2e/runs*",
-    "test:signup": "playwright test apps/web/tests/e2e/signup*"
+    "test:flows": "playwright test apps/web/tests/e2e/flows*"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -45,11 +43,10 @@
     "@radix-ui/react-slot": "1.1.1",
     "@radix-ui/react-switch": "latest",
     "@radix-ui/react-tabs": "latest",
-    "@radix-ui/react-toast": "1.2.4",
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
-    "@vercel/analytics": "latest",
+    "@yeetflow/api-client": "workspace:*",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

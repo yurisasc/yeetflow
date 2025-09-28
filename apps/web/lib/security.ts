@@ -1,36 +1,27 @@
-// Security configuration for YeetFlow
-// Implements Content Security Policy and other security headers
+const trustedSessionOrigins: string[] = [];
 
-const scriptSrc: string[] = ["'self'"];
-
-if (process.env.NODE_ENV !== 'production') {
-  // Next.js dev server injects inline scripts for HMR and RSC refresh
-  scriptSrc.push("'unsafe-eval'");
-  scriptSrc.push("'unsafe-inline'");
+if (process.env.NEXT_PUBLIC_TRUSTED_SESSION_ORIGIN) {
+  trustedSessionOrigins.push(process.env.NEXT_PUBLIC_TRUSTED_SESSION_ORIGIN);
 }
 
 export const securityConfig = {
   contentSecurityPolicy: {
     directives: {
-      'default-src': ["'self'"],
-      'script-src': scriptSrc,
-      'style-src': [
-        "'self'",
-        "'unsafe-inline'", // Required for styled-components/Next.js
-        // TODO: Remove 'unsafe-inline' in production
-      ],
-      'img-src': ["'self'", 'data:', 'https:'],
-      'font-src': ["'self'", 'data:'],
+      'default-src': ['self'],
+      'script-src': ['self', 'unsafe-inline'],
+      'style-src': ['self', 'unsafe-inline'], // Required for styled-components/Next.js
+      'img-src': ['self', 'data:', 'https:'],
+      'font-src': ['self', 'data:'],
       'connect-src': [
-        "'self'",
+        'self',
         process.env.WORKER_BASE_URL || 'http://localhost:8000',
+        ...trustedSessionOrigins,
         ...(process.env.NODE_ENV !== 'production' ? ['ws:', 'wss:'] : []),
       ],
-      'frame-ancestors': ["'none'"],
-      'form-action': ["'self'"],
-      'base-uri': ["'self'"],
-      'object-src': ["'none'"],
-      'script-src-attr': ["'none'"], // Disallow inline event handlers
+      'frame-src': ['self', ...trustedSessionOrigins],
+      'frame-ancestors': ['none'],
+      'object-src': ['none'],
+      'script-src-attr': ['none'], // Disallow inline event handlers
     },
   },
 
@@ -46,11 +37,14 @@ export const securityConfig = {
 /**
  * Generates CSP header string from directives
  */
-export function generateCSPHeader(): string {
-  const directives = securityConfig.contentSecurityPolicy.directives;
-  return Object.entries(directives)
-    .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
-    .join('; ');
+export function generateCSPHeader(): string | undefined {
+  // const directives = securityConfig.contentSecurityPolicy.directives;
+  // return Object.entries(directives)
+  //   .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
+  //   .join('; ');
+  // TODO: The CSP currently causes a lot of issues with the prod app, so it's disabled for now.
+  //       Revisit this in the future.
+  return undefined;
 }
 
 /**
@@ -76,10 +70,10 @@ export class SecurityUtils {
    */
   static isValidJWT(token: string): boolean {
     if (!token || typeof token !== 'string') return false;
-    
+
     const parts = token.split('.');
     if (parts.length !== 3) return false;
-    
+
     try {
       // Validate each part is base64url encoded and ensure header/payload are JSON
       parts.forEach((part, index) => {
@@ -104,18 +98,5 @@ export class SecurityUtils {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * Creates a secure random string for CSRF tokens
-   */
-  static generateCSRFToken(): string {
-    if (typeof window !== 'undefined' && window.crypto) {
-      const array = new Uint8Array(32);
-      window.crypto.getRandomValues(array);
-      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-    }
-    // Fallback for server-side rendering
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   }
 }

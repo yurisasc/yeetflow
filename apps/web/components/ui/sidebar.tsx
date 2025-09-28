@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getCurrentUser, logout, isAdmin } from '@/lib/auth';
-import { SecurityUtils } from '@/lib/security';
+import { useAuth } from '@/providers/auth-provider';
 import {
   Zap,
   Workflow,
@@ -25,6 +25,7 @@ import {
   Users,
   ChevronDown,
 } from 'lucide-react';
+import { SecurityUtils } from '@/lib/security';
 
 interface NavigationItem {
   name: string;
@@ -64,8 +65,7 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  const user = getCurrentUser();
-  const userIsAdmin = isAdmin();
+  const { user, isAdmin, logout, isLoading } = useAuth();
 
   const isActivePath = (href: string) => {
     if (href === '/flows') return pathname === '/flows';
@@ -75,7 +75,7 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   const visibleNavigation = navigation.filter(
-    (item) => !item.adminOnly || userIsAdmin,
+    (item) => !item.adminOnly || isAdmin,
   );
 
   return (
@@ -130,26 +130,45 @@ export function Sidebar({ className }: SidebarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant='ghost' className='w-full justify-start p-2 h-auto'>
               <div className='flex items-center space-x-3 w-full'>
-                <Avatar className='h-8 w-8'>
-                  <AvatarFallback className='bg-primary text-primary-foreground text-sm'>
-                    {user?.name?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                {isLoading ? (
+                  <Skeleton className='h-8 w-8 rounded-full' />
+                ) : (
+                  <Avatar className='h-8 w-8'>
+                    <AvatarFallback className='bg-primary text-primary-foreground text-sm'>
+                      {user?.name?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
                 <div className='flex-1 text-left'>
-                  <div className='flex items-center space-x-2'>
-                    <p className='text-sm font-medium text-foreground truncate'>
-                      {SecurityUtils.sanitizeInput(user?.name || 'Demo User')}
-                    </p>
-                    <Badge
-                      variant={user?.role === 'admin' ? 'default' : 'secondary'}
-                      className='text-xs'
-                    >
-                      {user?.role === 'admin' ? 'Admin' : 'User'}
-                    </Badge>
-                  </div>
-                  <p className='text-xs text-muted-foreground truncate'>
-                    {SecurityUtils.sanitizeInput(user?.email || 'demo@yeetflow.com')}
-                  </p>
+                  {isLoading ? (
+                    <>
+                      <Skeleton className='h-4 w-24 mb-1' />
+                      <Skeleton className='h-3 w-32' />
+                    </>
+                  ) : (
+                    <>
+                      <div className='flex items-center space-x-2'>
+                        <p className='text-sm font-medium text-foreground truncate'>
+                          {user?.name || ''}
+                        </p>
+                        <Badge
+                          variant={
+                            user?.role === 'admin' ? 'default' : 'secondary'
+                          }
+                          className='text-xs'
+                        >
+                          {user?.role === 'admin'
+                            ? 'Admin'
+                            : user
+                              ? 'User'
+                              : 'Guest'}
+                        </Badge>
+                      </div>
+                      <p className='text-xs text-muted-foreground truncate'>
+                        {SecurityUtils.sanitizeInput(user?.email || '')}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <ChevronDown className='w-4 h-4 text-muted-foreground' />
               </div>
@@ -166,13 +185,15 @@ export function Sidebar({ className }: SidebarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={logout}
-              className='hover:bg-accent text-red-400'
-            >
-              <LogOut className='mr-2 h-4 w-4' />
-              <span>Sign out</span>
-            </DropdownMenuItem>
+            {user && (
+              <DropdownMenuItem
+                onClick={logout}
+                className='hover:bg-accent text-red-400'
+              >
+                <LogOut className='mr-2 h-4 w-4' />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

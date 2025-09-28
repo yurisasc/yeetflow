@@ -6,14 +6,6 @@ test.describe('Authentication Login E2E', () => {
     // Ensure we're starting from a clean state
     await page.context().clearCookies();
     await page.goto('/login');
-    // Handle localStorage access gracefully
-    await page.evaluate(() => {
-      try {
-        localStorage.clear();
-      } catch (e) {
-        // Ignore localStorage errors in test environment
-      }
-    });
   });
 
   test('user can log in via email/password and access flows page', async ({
@@ -39,10 +31,15 @@ test.describe('Authentication Login E2E', () => {
     // Verify error message appears
     const errorMessage = page.locator('[data-testid="login-error"]');
     await expect(errorMessage).toBeVisible();
-    await expect(errorMessage).toContainText(/Incorrect email or password/i);
+    // a11y: ensure screen readers announce the error
+    await expect(errorMessage).toHaveAttribute('role', /^(alert|status)$/);
+    // BFF returns a generic message or forwards backend detail
+    await expect(errorMessage).toContainText(
+      /(Authentication failed|Invalid|Incorrect)/i,
+    );
 
     // Verify no redirect to flows
-    await expect(page).not.toHaveURL('/flows');
+    await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
   });
 
   test('login redirects to protected page after success', async ({ page }) => {

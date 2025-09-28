@@ -1,19 +1,17 @@
-'use client';
-
 import type React from 'react';
-import { AuthGuard } from '@/components/auth-guard';
-import { ErrorBoundary } from '@/components/error-boundary';
-import { OfflineBanner } from '@/components/offline-banner';
+import { ErrorBoundary } from '@/components/system/error-boundary';
+import { OfflineBanner } from '@/components/system/offline-banner';
 import { Sidebar } from '@/components/ui/sidebar';
 import { MobileNav } from '@/components/ui/mobile-nav';
+import { AuthProvider } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bell } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthGuard>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <AuthProvider>
         <div className='min-h-screen bg-background'>
           <OfflineBanner />
 
@@ -45,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-      </ErrorBoundary>
-    </AuthGuard>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

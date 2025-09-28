@@ -9,10 +9,8 @@ test.describe('E2E setup', () => {
     const password = 'adminpass';
     const name = 'E2E Admin';
 
+    await page.context().clearCookies();
     await page.goto('/signup');
-    await page.evaluate(() => {
-      try { localStorage.clear(); } catch {}
-    });
     await page.fill('[data-testid="name-input"]', name);
     await page.fill('[data-testid="email-input"]', email);
     await page.fill('[data-testid="password-input"]', password);
