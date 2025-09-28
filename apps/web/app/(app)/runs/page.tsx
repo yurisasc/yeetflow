@@ -73,17 +73,6 @@ const mockRuns: RunListItem[] = [
     ],
   },
   {
-    id: 'user-onboarding-1737621600000',
-    flowName: 'Employee Onboarding',
-    flowId: 'flow-user-onboarding',
-    status: 'error',
-    progress: 35,
-    startedAt: '2025-01-23T07:00:00Z',
-    duration: '8m 22s',
-    currentStep: 'Failed to create user account',
-    artifacts: [],
-  },
-  {
     id: 'invoice-processing-1737618000000',
     flowName: 'Invoice Processing',
     flowId: 'flow-invoice-processing',
@@ -121,12 +110,11 @@ const flowOptions: FilterOption[] = [
 
 const statusOptions: FilterOption[] = [
   { value: 'all', label: 'All Status' },
+  { value: 'pending', label: 'Pending' },
   { value: 'running', label: 'Running' },
   { value: 'awaiting_input', label: 'Awaiting Input' },
-  { value: 'paused', label: 'Paused' },
   { value: 'completed', label: 'Completed' },
-  { value: 'error', label: 'Error' },
-  { value: 'canceled', label: 'Canceled' },
+  { value: 'failed', label: 'Failed' },
 ];
 
 const dateRangeOptions: FilterOption[] = [
