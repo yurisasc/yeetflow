@@ -103,6 +103,7 @@ export default function RunPageWithUI({
     } catch (error) {
       // Error handling is done in the action
       console.error('Failed to continue with AI:', error);
+      throw error;
     }
   };
 
