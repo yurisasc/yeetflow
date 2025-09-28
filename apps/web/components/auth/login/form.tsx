@@ -67,7 +67,7 @@ export function LoginForm({
               className='bg-input border-border'
               data-testid='email-input'
               name='email'
-              autoComplete='email'
+              autoComplete='username'
               autoCapitalize='none'
               autoCorrect='off'
               inputMode='email'

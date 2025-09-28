@@ -85,13 +85,11 @@ test.describe('Flows List', () => {
 
     // If server returns an error, the UI should surface it; otherwise it may redirect.
     const error = page.locator('[data-testid="start-flow-error"]');
-    if ((await error.count()) > 0) {
+    if (await error.isVisible()) {
       await expect(error).toContainText(/failed|invalid|error/i);
     } else {
-      // Either redirect occurred or error UI not implemented yet
-      await expect(
-        page.locator('[data-testid="flows-list"]').first(),
-      ).toBeVisible();
+      // Successful run creation should redirect to the run page
+      await expect(page).toHaveURL(/\/runs\//, { timeout: 15000 });
     }
   });
 

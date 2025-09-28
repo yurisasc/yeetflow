@@ -13,10 +13,30 @@ export function parseSetCookieHeader(
   cookieHeader: string,
   isSecureRequest: boolean,
 ): ParsedCookie | null {
-  const [nameValue, ...attributePairs] = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const segments: string[] = [];
+  let buffer = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < cookieHeader.length; i += 1) {
+    const char = cookieHeader[i];
+    if (char === '"' && cookieHeader[i - 1] !== '\\') {
+      inQuotes = !inQuotes;
+    }
+
+    if (char === ';' && !inQuotes) {
+      segments.push(buffer.trim());
+      buffer = '';
+      continue;
+    }
+
+    buffer += char;
+  }
+
+  if (buffer) {
+    segments.push(buffer.trim());
+  }
+
+  const [nameValue, ...attributePairs] = segments.filter(Boolean);
 
   if (!nameValue || !nameValue.includes('=')) return null;
 

@@ -35,7 +35,11 @@ export const createAPIClient = () => {
       const cookieStore = await cookies();
       const accessToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-      const headers = new Headers(init?.headers || {});
+      // Start from Request's headers (if any), then overlay init.headers
+      const headers = new Headers(
+        input instanceof Request ? input.headers : undefined,
+      );
+      new Headers(init?.headers || {}).forEach((v, k) => headers.set(k, v));
 
       // Attach Authorization header if we have an access token and not bypassing
       if (

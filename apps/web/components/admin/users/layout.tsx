@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import type { FilterOption, UserData } from './types';
+import type { UserData } from './types';
+import type { FilterOption } from '@/components/runs/types';
 import { UsersHeader } from './header';
 import { UsersFilters } from './filters';
 import { UsersLoadingSkeleton } from './loading-skeleton';

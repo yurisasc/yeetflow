@@ -32,7 +32,7 @@ test.describe('Authentication Login E2E', () => {
     const errorMessage = page.locator('[data-testid="login-error"]');
     await expect(errorMessage).toBeVisible();
     // a11y: ensure screen readers announce the error
-    await expect(errorMessage).toHaveAttribute('role', /alert|status/);
+    await expect(errorMessage).toHaveAttribute('role', /^(alert|status)$/);
     // BFF returns a generic message or forwards backend detail
     await expect(errorMessage).toContainText(
       /(Authentication failed|Invalid|Incorrect)/i,

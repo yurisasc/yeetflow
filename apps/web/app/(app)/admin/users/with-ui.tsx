@@ -3,15 +3,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UsersLayout } from '@/components/admin/users/layout';
-import type { FilterOption, UserData } from '@/components/admin/users/types';
+import type { UserData } from '@/components/admin/users/types';
+import type { FilterOption } from '@/components/runs/types';
 import { useAuth } from '@/providers/auth-provider';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { updateUserRoleAction } from './actions';
 
 type AdminUsersWithUIProps = {
   usersList: UserData[];
   roleOptions: FilterOption[];
   statusOptions: FilterOption[];
 };
+
+const ROLE_VALUES = ['all', 'admin', 'user'] as const;
+const STATUS_VALUES = ['all', 'active', 'inactive', 'pending'] as const;
 
 export default function AdminUsersWithUI({
   usersList,
@@ -37,11 +43,8 @@ export default function AdminUsersWithUI({
       return;
     }
     if (!isLoading) {
-      const t = setTimeout(() => {
-        setUsers(usersList);
-        setIsPageLoading(false);
-      }, 600);
-      return () => clearTimeout(t);
+      setUsers(usersList);
+      setIsPageLoading(false);
     }
   }, [isAdmin, isLoading, router, usersList]);
 
@@ -70,28 +73,27 @@ export default function AdminUsersWithUI({
   };
 
   const handleRoleFilterChange = useCallback((value: string) => {
-    if (value === 'admin' || value === 'user' || value === 'all') {
-      setRoleFilter(value);
+    if (ROLE_VALUES.includes(value as any)) {
+      setRoleFilter(value as typeof ROLE_VALUES[number]);
     }
   }, []);
 
   const handleStatusFilterChange = useCallback((value: string) => {
-    if (
-      value === 'active' ||
-      value === 'inactive' ||
-      value === 'pending' ||
-      value === 'all'
-    ) {
-      setStatusFilter(value);
+    if (STATUS_VALUES.includes(value as any)) {
+      setStatusFilter(value as typeof STATUS_VALUES[number]);
     }
   }, []);
 
   const handleCopy = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // TODO: consider toast feedback on success
+      toast('Copied to clipboard', {
+        description: 'User identifier copied successfully.',
+      });
     } catch {
-      // TODO: surface failure feedback for the user
+      toast.error('Copy failed', {
+        description: 'Unable to copy to clipboard. Please try again.',
+      });
     }
   }, []);
 
@@ -101,17 +103,45 @@ export default function AdminUsersWithUI({
     setIsRoleChangeDialogOpen(true);
   }, []);
 
-  const confirmRoleChange = useCallback(() => {
-    if (selectedUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id ? { ...u, role: newRole } : u,
-        ),
-      );
+  const confirmRoleChange = useCallback(async () => {
+    if (!selectedUser) return;
+
+    const previousUsers = users;
+    const optimisticUsers = users.map((user) =>
+      user.id === selectedUser.id ? { ...user, role: newRole } : user,
+    );
+
+    setUsers(optimisticUsers);
+
+    try {
+      const result = await updateUserRoleAction({
+        userId: selectedUser.id,
+        role: newRole,
+      });
+
+      if (!result.success) {
+        setUsers(previousUsers);
+        toast.error('Unable to update role', {
+          description: result.error,
+        });
+        setIsRoleChangeDialogOpen(true);
+        return;
+      }
+
+      toast.success('Role updated', {
+        description: `${selectedUser.name}'s role is now ${newRole}.`,
+      });
+
       setIsRoleChangeDialogOpen(false);
       setSelectedUser(null);
+    } catch (error: unknown) {
+      setUsers(previousUsers);
+      toast.error('Network error', {
+        description: 'We could not update the user role. Please try again.',
+      });
+      setIsRoleChangeDialogOpen(true);
     }
-  }, [newRole, selectedUser]);
+  }, [newRole, selectedUser, updateUserRoleAction, users]);
 
   if (isLoading)
     return (
@@ -123,7 +153,15 @@ export default function AdminUsersWithUI({
         <p className='text-sm text-muted-foreground'>Checking permissions…</p>
       </div>
     );
-  if (!isAdmin) return null;
+  if (!isAdmin) {
+    return (
+      <div className='flex h-full w-full flex-col items-center justify-center gap-3 py-16 text-center'>
+        <p className='text-sm text-muted-foreground'>
+          You don't have permission to access this page
+        </p>
+      </div>
+    );
+  }
 
   return (
     <UsersLayout
