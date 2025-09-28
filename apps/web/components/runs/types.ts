@@ -7,13 +7,11 @@ export type RunArtifact = {
 };
 
 export type RunStatus =
-  | 'idle'
+  | 'pending'
   | 'running'
-  | 'paused'
   | 'awaiting_input'
-  | 'error'
   | 'completed'
-  | 'canceled';
+  | 'failed';
 
 export type RunListItem = {
   id: string;

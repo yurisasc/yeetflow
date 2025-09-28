@@ -23,7 +23,7 @@ export function RunBrowserCard({
   onIframeLoad,
 }: RunBrowserCardProps) {
   return (
-    <Card className='border-border bg-card h-full'>
+    <Card className='border-border bg-card h-full flex flex-col'>
       <CardHeader className='pb-3'>
         <div className='flex items-center justify-between'>
           <CardTitle className='text-lg'>Browser Session</CardTitle>
@@ -32,7 +32,6 @@ export function RunBrowserCard({
               variant='outline'
               size='sm'
               onClick={onOpenInNewTab}
-              className='border-border'
               aria-label='Open in new tab'
             >
               <ExternalLink className='w-4 h-4 mr-2' />
@@ -42,7 +41,6 @@ export function RunBrowserCard({
               variant='outline'
               size='sm'
               onClick={onToggleFullscreen}
-              className='border-border'
               aria-label='Toggle fullscreen'
             >
               <Maximize2 className='w-4 h-4' />
@@ -54,7 +52,7 @@ export function RunBrowserCard({
           <span>{embeddedUrl}</span>
         </div>
       </CardHeader>
-      <CardContent className='p-0'>
+      <CardContent className='p-0 flex-1'>
         {iframeError ? (
           <div
             className={`${heightClass} flex items-center justify-center bg-muted/20 border border-border rounded-lg mx-6 mb-6`}
@@ -80,7 +78,7 @@ export function RunBrowserCard({
             </div>
           </div>
         ) : (
-          <div className={`${heightClass} mx-6 mb-6`}>
+          <div className={`${heightClass} mx-6 mb-6 h-full`}>
             <iframe
               src={embeddedUrl}
               className='w-full h-full border border-border rounded-lg'

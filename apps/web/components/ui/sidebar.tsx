@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -23,7 +22,7 @@ import {
   User,
   LogOut,
   Users,
-  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { SecurityUtils } from '@/lib/security';
 
@@ -114,11 +113,6 @@ export function Sidebar({ className }: SidebarProps) {
                 <item.icon className='w-5 h-5' />
                 <span>{item.name}</span>
               </div>
-              {item.badge && (
-                <Badge variant='secondary' className='ml-auto'>
-                  {item.badge}
-                </Badge>
-              )}
             </Link>
           );
         })}
@@ -139,7 +133,7 @@ export function Sidebar({ className }: SidebarProps) {
                     </AvatarFallback>
                   </Avatar>
                 )}
-                <div className='flex-1 text-left'>
+                <div className='flex-1 text-left min-w-0'>
                   {isLoading ? (
                     <>
                       <Skeleton className='h-4 w-24 mb-1' />
@@ -147,30 +141,16 @@ export function Sidebar({ className }: SidebarProps) {
                     </>
                   ) : (
                     <>
-                      <div className='flex items-center space-x-2'>
-                        <p className='text-sm font-medium text-foreground truncate'>
-                          {user?.name || ''}
-                        </p>
-                        <Badge
-                          variant={
-                            user?.role === 'admin' ? 'default' : 'secondary'
-                          }
-                          className='text-xs'
-                        >
-                          {user?.role === 'admin'
-                            ? 'Admin'
-                            : user
-                              ? 'User'
-                              : 'Guest'}
-                        </Badge>
-                      </div>
+                      <p className='text-sm font-medium text-foreground truncate'>
+                        {user?.name || ''}
+                      </p>
                       <p className='text-xs text-muted-foreground truncate'>
                         {SecurityUtils.sanitizeInput(user?.email || '')}
                       </p>
                     </>
                   )}
                 </div>
-                <ChevronDown className='w-4 h-4 text-muted-foreground' />
+                <ChevronUp className='w-4 h-4 text-muted-foreground flex-shrink-0' />
               </div>
             </Button>
           </DropdownMenuTrigger>
