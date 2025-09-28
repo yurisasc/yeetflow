@@ -55,7 +55,7 @@ export default function RunPageWithUI({
   const events: RunEvent[] = [];
 
   const handleToggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+    setIsFullscreen((prev) => !prev);
   };
 
   const handleOpenInNewTab = () => {
@@ -85,7 +85,7 @@ export default function RunPageWithUI({
   };
 
   const handleToggleAdvanced = () => {
-    setShowAdvanced(!showAdvanced);
+    setShowAdvanced((prev) => !prev);
   };
 
   const handleSubmitHandoff = async () => {

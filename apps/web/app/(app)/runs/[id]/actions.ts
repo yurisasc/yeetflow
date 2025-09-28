@@ -45,8 +45,8 @@ export async function continueWithAIAction(
   }
 
   // Ensure action is set to "continue" when input_payload is present
-  if (input_payload && (input_payload as any).action === undefined) {
-    input_payload = { action: 'continue', ...input_payload };
+  if (input_payload) {
+    input_payload = { ...input_payload, action: 'continue' };
   }
 
   try {
@@ -74,7 +74,9 @@ export async function continueWithAIAction(
   }
 }
 
-export async function continueWithAIFormAction(formData: FormData): Promise<void> {
+export async function continueWithAIFormAction(
+  formData: FormData,
+): Promise<void> {
   const runId = String(formData.get('runId') || '');
   const notes = String(formData.get('notes') || '');
   const inputJson = String(formData.get('inputJson') || '');

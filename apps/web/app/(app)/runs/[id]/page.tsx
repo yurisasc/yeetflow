@@ -2,6 +2,8 @@ import {
   getRunApiV1RunsRunIdGet,
   getRunSessionsApiV1RunsRunIdSessionsGet,
   getFlowApiV1FlowsFlowIdGet,
+  type RunRead,
+  type FlowRead,
 } from '@yeetflow/api-client';
 import { createAPIClient } from '@/lib/api';
 import RunPageWithUI from './with-ui';
@@ -13,8 +15,8 @@ export default async function RunPage(props: PageProps) {
 
   const client = createAPIClient();
 
-  let run: any | null = null;
-  let flow: any | null = null;
+  let run: RunRead | null = null;
+  let flow: FlowRead | null = null;
   let sessionUrl: string | null = null;
   let errorMessage: string | null = null;
 
