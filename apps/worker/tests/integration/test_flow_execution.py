@@ -73,7 +73,7 @@ class TestFlowExecution:
     async def test_flow_executes_actions_and_stops_at_checkpoint(
         self, flow_runner, sample_flow_manifest, mock_run_service, mock_steel_adapter
     ):
-        """Test that flow executes actions and properly stops at checkpoint."""
+        """Test that flow executes actions and pauses at checkpoint without teardown."""
         # Create a test run
         run = Run(
             id="test-run-123",
@@ -107,8 +107,8 @@ class TestFlowExecution:
             "Flow should not be marked as completed when paused at checkpoint"
         )
 
-        # Verify session was closed
-        mock_steel_adapter.close_session.assert_called_once_with(run.id)
+        # Verify session was NOT closed (resources preserved for resume)
+        mock_steel_adapter.close_session.assert_not_called()
 
     async def test_flow_completes_when_no_checkpoint(
         self, flow_runner, mock_run_service
@@ -212,11 +212,11 @@ class TestFlowExecution:
         assert reason == "Please verify the form was filled correctly"
         assert expected_action == "confirm"
 
-    async def test_agent_lifecycle_management(self, flow_runner, sample_flow_manifest):
-        """Test that browser agent is properly started and stopped."""
+    async def test_agent_lifecycle_management(self, flow_runner):
+        """Test that browser agent is properly started and stopped on completion."""
         run = Run(
             id="lifecycle-run-123",
-            flow_id=sample_flow_manifest["id"],
+            flow_id="simple-flow-001",
             user_id="test-user-123",
             status=RunStatus.PENDING,
         )
@@ -225,12 +225,33 @@ class TestFlowExecution:
         start_mock = AsyncMock()
         stop_mock = AsyncMock()
 
+        # Use a simple flow without a checkpoint so the run completes
+        simple_flow = {
+            "id": "simple-flow-001",
+            "name": "Simple Flow",
+            "key": "simple-flow",
+            "config": {
+                "steps": [
+                    {
+                        "type": "action",
+                        "name": "Navigate",
+                        "action": {"type": "navigate", "url": "https://example.com"},
+                    },
+                    {
+                        "type": "action",
+                        "name": "Click",
+                        "action": {"type": "click", "selector": "#button"},
+                    },
+                ]
+            },
+        }
+
         with (
             patch("app.runtime.runner.create_browser_use_agent", return_value=None),
             patch.object(NoopAgent, "start", new=start_mock),
             patch.object(NoopAgent, "stop", new=stop_mock),
         ):
-            await flow_runner.execute_flow(run, sample_flow_manifest, {})
+            await flow_runner.execute_flow(run, simple_flow, {})
 
         # Verify agent lifecycle methods were called
         start_mock.assert_awaited_once()

@@ -36,16 +36,18 @@ class FlowRegistry:
             logger.warning("Flows directory %s does not exist", self.flows_dir)
             return
 
-        for manifest_file in self.flows_dir.glob("*/manifest.yaml"):
-            try:
-                manifest = self._load_manifest(manifest_file)
-                if manifest:
-                    if manifest.id in self._manifests:
-                        logger.warning(
-                            "Duplicate flow id '%s' from %s ignored",
-                            manifest.id,
-                            manifest_file,
-                        )
+        patterns = ("*/manifest.yaml", "*/manifest.yml")
+        for pattern in patterns:
+            for manifest_file in sorted(self.flows_dir.glob(pattern)):
+                try:
+                    manifest = self._load_manifest(manifest_file)
+                    if manifest:
+                        if manifest.id in self._manifests:
+                            logger.warning(
+                                "Duplicate flow id '%s' from %s ignored",
+                                manifest.id,
+                                manifest_file,
+                            )
                         continue
                     if manifest.key in self._by_key:
                         logger.warning(
@@ -57,8 +59,8 @@ class FlowRegistry:
                     self._manifests[manifest.id] = manifest
                     self._by_key[manifest.key] = manifest
                     logger.info("Loaded flow manifest: %s", manifest.id)
-            except Exception:
-                logger.exception("Failed to load manifest %s", manifest_file)
+                except Exception:
+                    logger.exception("Failed to load manifest %s", manifest_file)
 
     def _load_manifest(self, manifest_path: Path) -> FlowManifest | None:
         """Load a single manifest file."""

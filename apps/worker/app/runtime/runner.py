@@ -45,6 +45,8 @@ class FlowRunner:
             manifest=flow_manifest,
         )
 
+        flow_completed = False
+        failed = False
         try:
             # Initialize browser session via Steel.dev
             await self.steel_adapter.create_session(run.id)
@@ -82,21 +84,30 @@ class FlowRunner:
 
             # Emit failure event
             await self.event_emitter.emit_run_failed(context, str(e))
+            failed = True
         finally:
-            # Cleanup agent and Steel session
-            try:
-                if self._agent:
-                    try:
-                        await asyncio.wait_for(self._agent.stop(), timeout=10.0)
-                    except TimeoutError:
-                        logger.warning("Agent stop timed out for run %s", run.id)
-            finally:
+            # Cleanup only when completed or failed; keep resources alive when paused.
+            paused = (not failed) and (not flow_completed)
+            if paused:
+                logger.info(
+                    "Run %s paused; keeping agent and browser session open for resume",
+                    run.id,
+                )
+            else:
+                # Cleanup agent and Steel session
                 try:
-                    await asyncio.wait_for(
-                        self.steel_adapter.close_session(run.id), timeout=10.0
-                    )
-                except TimeoutError:
-                    logger.warning("Session close timed out for run %s", run.id)
+                    if self._agent:
+                        try:
+                            await asyncio.wait_for(self._agent.stop(), timeout=10.0)
+                        except TimeoutError:
+                            logger.warning("Agent stop timed out for run %s", run.id)
+                finally:
+                    try:
+                        await asyncio.wait_for(
+                            self.steel_adapter.close_session(run.id), timeout=10.0
+                        )
+                    except TimeoutError:
+                        logger.warning("Session close timed out for run %s", run.id)
 
     async def _execute_flow_steps(self, context: RunContext) -> bool:
         """Execute individual flow steps (placeholder implementation).
@@ -165,8 +176,8 @@ class FlowRunner:
     async def _execute_action(self, context: RunContext, step: dict[str, Any]) -> None:
         """Execute an action step via the ActionExecutor."""
         if not self._executor:
-            logger.warning("ActionExecutor not initialized; skipping action")
-            return
+            message = "ActionExecutor not initialized"
+            raise RuntimeError(message)
         await self._executor.execute_action(context, step)
 
     async def resume_flow(self, run_id: UUID, user_input: dict[str, Any]) -> None:
