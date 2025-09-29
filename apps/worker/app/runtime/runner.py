@@ -11,6 +11,7 @@ from app.automation.agents.browser_use_agent import (
 )
 from app.automation.agents.noop import NoopAgent
 from app.automation.executor import ActionExecutor
+from app.db import get_session
 from app.models import Run
 from app.runtime.context import RunContext
 from app.runtime.events import EventEmitter
@@ -27,7 +28,7 @@ class FlowRunner:
         self, run_service: RunService, steel_adapter: SteelBrowserAdapter | None = None
     ):
         self.run_service = run_service
-        self.event_emitter = EventEmitter()
+        self.event_emitter = EventEmitter(session_getter=get_session)
         self.steel_adapter = steel_adapter or SteelBrowserAdapter()
         self._agent = None
         self._executor: ActionExecutor | None = None
@@ -63,13 +64,15 @@ class FlowRunner:
             await self.event_emitter.emit_run_started(context)
 
             # Execute the flow
-            await self._execute_flow_steps(context)
+            flow_completed = await self._execute_flow_steps(context)
 
-            # Update run status to completed
-            await self.run_service.update_run_status(run.id, "completed")
+            # Only mark as completed if all steps finished
+            if flow_completed:
+                # Update run status to completed
+                await self.run_service.update_run_status(run.id, "completed")
 
-            # Emit completion event
-            await self.event_emitter.emit_run_completed(context)
+                # Emit completion event
+                await self.event_emitter.emit_run_completed(context)
 
         except Exception as e:
             logger.exception("Flow execution failed for run %s", run.id)
@@ -87,8 +90,12 @@ class FlowRunner:
             finally:
                 await self.steel_adapter.close_session(run.id)
 
-    async def _execute_flow_steps(self, context: RunContext) -> None:
-        """Execute individual flow steps (placeholder implementation)."""
+    async def _execute_flow_steps(self, context: RunContext) -> bool:
+        """Execute individual flow steps (placeholder implementation).
+
+        Returns:
+            bool: True if all steps completed, False if paused at checkpoint
+        """
         # This is where the actual flow execution logic would go
         # For now, just emit some sample events
 
@@ -105,7 +112,9 @@ class FlowRunner:
 
             try:
                 # Execute step
-                await self._execute_step(context, step)
+                should_continue = await self._execute_step(context, step)
+                if not should_continue:
+                    return False  # Paused at checkpoint
 
                 # Emit step completion
                 await self.event_emitter.emit_step_completed(context, step_name)
@@ -115,7 +124,9 @@ class FlowRunner:
                 await self.event_emitter.emit_step_failed(context, step_name, str(e))
                 raise
 
-    async def _execute_step(self, context: RunContext, step: dict[str, Any]) -> None:
+        return True  # All steps completed
+
+    async def _execute_step(self, context: RunContext, step: dict[str, Any]) -> bool:
         """Execute a single step using first-principles primitives."""
         step_type = (step.get("type") or "").lower()
 
@@ -131,14 +142,15 @@ class FlowRunner:
                 context, checkpoint_id, reason, expected_action, expires_at
             )
             await self.run_service.update_run_status(context.run_id, "awaiting_input")
-            # NOTE: Block until resume occurs is handled elsewhere.
+            return False
 
-        elif step_type == "action":
+        if step_type == "action":
             # Execute an action via executor
             await self._execute_action(context, step)
 
         # Simulate some execution time (placeholder)
         await asyncio.sleep(0.1)
+        return True
 
     async def _execute_action(self, context: RunContext, step: dict[str, Any]) -> None:
         """Execute an action step via the ActionExecutor."""

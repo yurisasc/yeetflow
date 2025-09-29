@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class FlowManifest(BaseModel):
     name: str
     key: str
     description: str | None = None
-    config: dict = {}
+    config: dict = Field(default_factory=dict)
 
 
 class FlowRegistry:

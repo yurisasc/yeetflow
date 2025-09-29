@@ -6,7 +6,6 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_db_session
 from app.models import EventCreate, EventRead, EventType
 from app.services.event.errors import EventNotFoundError
 from app.services.event.repository import EventRepository
@@ -17,18 +16,14 @@ logger = logging.getLogger(__name__)
 class EventService:
     """Service for managing flow execution events with business logic."""
 
-    def __init__(
-        self,
-        repository: EventRepository | None = None,
-        session: AsyncSession | None = None,
-    ):
+    def __init__(self, repository: EventRepository | None = None):
         self.repository = repository or EventRepository()
-        self.session = session
 
     async def create_event(
         self,
         run_id: UUID,
         event_type: EventType,
+        session: AsyncSession,
         message: str | None = None,
         payload: dict | None = None,
     ) -> EventRead:
@@ -57,17 +52,15 @@ class EventService:
             payload=payload,
         )
 
-        session = self.session or get_db_session()
         try:
             event = await self.repository.create_event(session, event_data)
             return EventRead.model_validate(event)
         except Exception:
-            if self.session is None:  # Only rollback if we created the session
-                await session.rollback()
+            await session.rollback()
             logger.exception("Failed to create event")
             raise
 
-    async def get_event_by_id(self, event_id: UUID) -> EventRead:
+    async def get_event_by_id(self, event_id: UUID, session: AsyncSession) -> EventRead:
         """Get an event by its ID.
 
         Args:
@@ -79,7 +72,6 @@ class EventService:
         Raises:
             EventNotFoundError: If the event doesn't exist
         """
-        session = self.session or get_db_session()
         event = await self.repository.get_event_by_id(session, event_id)
 
         if event is None:
@@ -87,7 +79,9 @@ class EventService:
 
         return EventRead.model_validate(event)
 
-    async def get_run_events(self, run_id: UUID, limit: int = 100) -> list[EventRead]:
+    async def get_run_events(
+        self, run_id: UUID, session: AsyncSession, limit: int = 100
+    ) -> list[EventRead]:
         """Get all events for a specific run.
 
         Args:
@@ -97,11 +91,12 @@ class EventService:
         Returns:
             List of EventRead objects
         """
-        session = self.session or get_db_session()
         events = await self.repository.get_run_events(session, run_id, limit)
         return [EventRead.model_validate(event) for event in events]
 
-    async def get_run_checkpoints(self, run_id: UUID) -> list[dict]:
+    async def get_run_checkpoints(
+        self, run_id: UUID, session: AsyncSession
+    ) -> list[dict]:
         """Get all checkpoint events for a run.
 
         Args:
@@ -110,7 +105,6 @@ class EventService:
         Returns:
             List of checkpoint data dictionaries
         """
-        session = self.session or get_db_session()
         events = await self.repository.get_run_events_by_type(
             session, run_id, EventType.CHECKPOINT
         )
@@ -121,7 +115,9 @@ class EventService:
             if event.payload and "checkpoint" in event.payload
         ]
 
-    async def get_active_checkpoint(self, run_id: UUID) -> dict | None:
+    async def get_active_checkpoint(
+        self, run_id: UUID, session: AsyncSession
+    ) -> dict | None:
         """Get the most recent active checkpoint for a run.
 
         Args:
@@ -130,7 +126,7 @@ class EventService:
         Returns:
             Checkpoint data dict if found and not expired, None otherwise
         """
-        checkpoints = await self.get_run_checkpoints(run_id)
+        checkpoints = await self.get_run_checkpoints(run_id, session)
 
         # Find the most recent checkpoint that hasn't expired
         now = datetime.now(UTC)
@@ -148,7 +144,7 @@ class EventService:
 
         return None
 
-    async def delete_run_events(self, run_id: UUID) -> int:
+    async def delete_run_events(self, run_id: UUID, session: AsyncSession) -> int:
         """Delete all events for a run.
 
         Args:
@@ -157,11 +153,9 @@ class EventService:
         Returns:
             Number of events deleted
         """
-        session = self.session or get_db_session()
         try:
             return await self.repository.delete_run_events(session, run_id)
         except Exception:
-            if self.session is None:  # Only rollback if we created the session
-                await session.rollback()
+            await session.rollback()
             logger.exception("Failed to delete events for run %s", run_id)
             raise

@@ -1,6 +1,7 @@
 """Event system for flow execution and monitoring."""
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -15,8 +16,13 @@ logger = logging.getLogger(__name__)
 class EventEmitter:
     """Emits events during flow execution."""
 
-    def __init__(self, event_service: EventService | None = None):
+    def __init__(
+        self,
+        event_service: EventService | None = None,
+        session_getter: Callable[[], Any] | None = None,
+    ):
         self.event_service = event_service
+        self.session_getter = session_getter
 
     async def emit_run_started(self, context: RunContext) -> None:
         """Emit run started event."""
@@ -158,15 +164,17 @@ class EventEmitter:
     ) -> None:
         """Emit an event through the event service."""
         try:
-            if self.event_service:
-                await self.event_service.create_event(
-                    run_id=run_id,
-                    event_type=event_type,
-                    message=message,
-                    payload=payload,
-                )
+            if self.event_service and self.session_getter:
+                async with self.session_getter() as session:
+                    await self.event_service.create_event(
+                        run_id=run_id,
+                        event_type=event_type,
+                        message=message,
+                        payload=payload,
+                        session=session,
+                    )
             else:
-                # Log to console if no event service available
+                # Log to console if no event service or session getter available
                 logger.info("Event [%s]: %s - %s", event_type.name, message, payload)
 
         except Exception:

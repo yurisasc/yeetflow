@@ -108,9 +108,9 @@ class SteelBrowserAdapter:
             success = await self.steel_service.release_session(session_id)
             if not success:
                 logger.warning("Failed to release Steel session %s", session_id)
+                return
 
-        # Clean up local session tracking
-        del self.sessions[run_id]
+        self.sessions.pop(run_id, None)
         logger.info("Closed browser session for run %s", run_id)
 
     def get_session_status(self, run_id: UUID) -> dict[str, Any] | None:

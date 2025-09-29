@@ -26,7 +26,12 @@ class NoopAgent(BrowserAgent):
         logger.info("noop click: %s", selector)
 
     async def type(self, selector: str, text: str, *, clear: bool = False) -> None:
-        logger.info("noop type: selector=%s text=%s, clear=%s", selector, text, clear)
+        logger.info(
+            "noop type: selector=%s text_len=%d clear=%s",
+            selector,
+            len(text),
+            clear,
+        )
 
     async def wait_for(self, selector: str, timeout_ms: int = 10000) -> None:
         logger.info("noop wait_for: %s (timeout=%sms)", selector, timeout_ms)
