@@ -285,7 +285,7 @@ class RunService:
         if request.input_payload is not None or request.notes is not None:
             event = Event(
                 run_id=run_id,
-                type=EventType.RUN_CONTINUED,
+                type=EventType.CHECKPOINT,
                 message="Run continued",
                 payload={
                     "input_payload": request.input_payload,

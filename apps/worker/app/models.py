@@ -51,12 +51,15 @@ class SessionStatus(str, Enum):
 
 
 class EventType(str, Enum):
-    PROGRESS = "progress"
-    ACTION_REQUIRED = "action_required"
-    ACTION_ACK = "action_ack"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    RUN_CONTINUED = "run_continued"
+    STATUS = "status"
+    LOG = "log"
+    STEP_START = "step_start"
+    STEP_END = "step_end"
+    CHECKPOINT = "checkpoint"
+    PROMPT = "prompt"
+    ARTIFACT = "artifact"
+    SCREENSHOT = "screenshot"
+    ERROR = "error"
 
 
 class RunBase(SQLModel):

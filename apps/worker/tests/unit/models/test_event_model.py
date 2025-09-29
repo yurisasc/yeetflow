@@ -29,7 +29,7 @@ class TestEventModel:
         payload = {"action": "click", "element": "#submit", "timestamp": 1234567890}
         event_data = EventCreate(
             run_id=run.id,
-            type=EventType.PROGRESS,
+            type=EventType.STATUS,
             message="Button clicked",
             payload=payload,
         )
@@ -41,7 +41,7 @@ class TestEventModel:
 
         # Verify JSON round-trip
         assert event.run_id == run.id
-        assert event.type == EventType.PROGRESS
+        assert event.type == EventType.STATUS
         assert event.message == event_data.message
         assert event.payload == payload
 
@@ -55,14 +55,14 @@ class TestEventModel:
         await session.commit()
 
         # Valid type should work
-        event = Event(run_id=run.id, type=EventType.ACTION_REQUIRED)
+        event = Event(run_id=run.id, type=EventType.CHECKPOINT)
         session.add(event)
         await session.commit()
 
         # Note: SQLite doesn't enforce enum constraints like PostgreSQL
         # This test verifies that valid enum values work correctly
         # Invalid enum values would be caught by Pydantic validation before reaching DB
-        assert event.type == EventType.ACTION_REQUIRED
+        assert event.type == EventType.CHECKPOINT
 
     def test_event_type_invalid_value_rejected_by_pydantic(self):
         with pytest.raises(ValidationError):
@@ -84,7 +84,7 @@ class TestEventModel:
         # Create event
         event = Event(
             run_id=run.id,
-            type=EventType.COMPLETED,
+            type=EventType.STATUS,
             message="Task completed successfully",
             payload={"result": "success", "duration": 45.2},
         )

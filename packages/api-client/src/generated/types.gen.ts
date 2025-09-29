@@ -76,7 +76,7 @@ export type EventRead = {
 /**
  * EventType
  */
-export type EventType = 'progress' | 'action_required' | 'action_ack' | 'completed' | 'failed' | 'run_continued';
+export type EventType = 'status' | 'log' | 'step_start' | 'step_end' | 'checkpoint' | 'prompt' | 'artifact' | 'screenshot' | 'error';
 
 /**
  * FlowListResponse

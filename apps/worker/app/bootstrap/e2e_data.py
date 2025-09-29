@@ -1,10 +1,12 @@
 import asyncio
 import logging
+from pathlib import Path
 
 from sqlalchemy import select
 
 from app.db import AsyncSessionLocal
 from app.models import Flow, User, UserRole
+from app.runtime.registry import FlowRegistry
 
 logger = logging.getLogger(__name__)
 _seed_tasks: set[asyncio.Task[None]] = set()
@@ -54,24 +56,30 @@ async def seed_e2e_flows() -> None:
                 logger.debug("E2E flows seeded by another process; skipping")
                 return
 
-            session.add_all(
-                [
-                    Flow(
-                        key="test-flow",
-                        name="Test Flow",
-                        description="A test flow for E2E validation",
-                        created_by=admin_id,
-                    ),
-                    Flow(
-                        key="hitl-flow",
-                        name="HITL Flow",
-                        description="Human-in-the-loop demo flow",
-                        created_by=admin_id,
-                    ),
-                ]
-            )
+            # Load flows from manifests
+            flows_dir = Path(__file__).parent.parent / "flows"
+            registry = FlowRegistry(flows_dir)
+            manifests = registry.list_flows()
+
+            if not manifests:
+                logger.info("No flow manifests found; skipping E2E flow seeding")
+                return
+
+            # Create Flow records from manifests
+            flow_records = [
+                Flow(
+                    id=manifest.id,  # Use manifest ID as database ID
+                    key=manifest.key,
+                    name=manifest.name,
+                    description=manifest.description,
+                    created_by=admin_id,
+                )
+                for manifest in manifests
+            ]
+
+            session.add_all(flow_records)
             await session.commit()
-            logger.info("Seeded default E2E flows")
+            logger.info("Seeded %d flows from manifests", len(flow_records))
 
     task = asyncio.create_task(_wait_for_admin_and_seed())
     _seed_tasks.add(task)
