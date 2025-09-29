@@ -41,13 +41,14 @@ class FlowRegistry:
             for manifest_file in sorted(self.flows_dir.glob(pattern)):
                 try:
                     manifest = self._load_manifest(manifest_file)
-                    if manifest:
-                        if manifest.id in self._manifests:
-                            logger.warning(
-                                "Duplicate flow id '%s' from %s ignored",
-                                manifest.id,
-                                manifest_file,
-                            )
+                    if manifest is None:
+                        continue
+                    if manifest.id in self._manifests:
+                        logger.warning(
+                            "Duplicate flow id '%s' from %s ignored",
+                            manifest.id,
+                            manifest_file,
+                        )
                         continue
                     if manifest.key in self._by_key:
                         logger.warning(

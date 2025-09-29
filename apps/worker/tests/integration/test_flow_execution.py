@@ -1,5 +1,6 @@
 """Integration tests for flow execution with FlowRunner."""
 
+import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -76,9 +77,9 @@ class TestFlowExecution:
         """Test that flow executes actions and pauses at checkpoint without teardown."""
         # Create a test run
         run = Run(
-            id="test-run-123",
-            flow_id=sample_flow_manifest["id"],
-            user_id="test-user-123",
+            id=uuid.uuid4(),
+            flow_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
             status=RunStatus.PENDING,
         )
 
@@ -136,9 +137,9 @@ class TestFlowExecution:
         }
 
         run = Run(
-            id="simple-run-123",
-            flow_id=simple_flow["id"],
-            user_id="test-user-123",
+            id=uuid.uuid4(),
+            flow_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
             status=RunStatus.PENDING,
         )
 
@@ -154,9 +155,9 @@ class TestFlowExecution:
         """Test that flow properly handles errors during action execution."""
         # Create run
         run = Run(
-            id="error-run-123",
-            flow_id=sample_flow_manifest["id"],
-            user_id="test-user-123",
+            id=uuid.uuid4(),
+            flow_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
             status=RunStatus.PENDING,
         )
 
@@ -178,9 +179,9 @@ class TestFlowExecution:
     ):
         """Test that checkpoint emits event with correct data structure."""
         run = Run(
-            id="checkpoint-run-123",
-            flow_id=sample_flow_manifest["id"],
-            user_id="test-user-123",
+            id=uuid.uuid4(),
+            flow_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
             status=RunStatus.PENDING,
         )
 
@@ -215,9 +216,9 @@ class TestFlowExecution:
     async def test_agent_lifecycle_management(self, flow_runner):
         """Test that browser agent is properly started and stopped on completion."""
         run = Run(
-            id="lifecycle-run-123",
-            flow_id="simple-flow-001",
-            user_id="test-user-123",
+            id=uuid.uuid4(),
+            flow_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
             status=RunStatus.PENDING,
         )
 
