@@ -1,0 +1,40 @@
+id: sample-flow-001
+name: Sample Browser Automation Flow
+key: sample-flow
+description: A sample flow demonstrating basic browser automation with human-in-the-loop
+config:
+  steps:
+    - type: action
+      name: Navigate to website
+      action:
+        type: navigate
+        url: "https://example.com"
+
+    - type: action
+      name: Click button
+      action:
+        type: click
+        selector: "#submit-button"
+
+    - type: checkpoint
+      name: Human verification
+      reason: "Please verify the form was filled correctly"
+      expected_action: "confirm"
+      timeout: 300  # 5 minutes
+
+    - type: action
+      name: Submit form
+      action:
+        type: click
+        selector: "[type='submit']"
+
+  inputs:
+    website_url:
+      type: string
+      description: "URL to navigate to"
+      default: "https://example.com"
+
+    button_selector:
+      type: string
+      description: "CSS selector for the button to click"
+      default: "#submit-button"

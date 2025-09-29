@@ -56,8 +56,8 @@ class TestRelationshipsAndCascades:
         # Create sessions and events
         session1 = DBSession(run_id=run.id, status=SessionStatus.ACTIVE)
         session2 = DBSession(run_id=run.id, status=SessionStatus.ENDED)
-        event1 = Event(run_id=run.id, type=EventType.PROGRESS, message="Starting")
-        event2 = Event(run_id=run.id, type=EventType.COMPLETED, message="Done")
+        event1 = Event(run_id=run.id, type=EventType.STATUS, message="Starting")
+        event2 = Event(run_id=run.id, type=EventType.STATUS, message="Done")
 
         session.add_all([session1, session2, event1, event2])
         await session.commit()
@@ -101,7 +101,7 @@ class TestRelationshipsAndCascades:
 
         # Create sessions and events
         session1 = DBSession(run_id=run.id)
-        event1 = Event(run_id=run.id, type=EventType.PROGRESS)
+        event1 = Event(run_id=run.id, type=EventType.STATUS)
         session.add_all([session1, event1])
         await session.commit()
 
