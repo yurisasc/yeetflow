@@ -162,7 +162,9 @@ class TestFlowExecution:
 
         with (
             patch("app.runtime.runner.create_browser_use_agent", return_value=None),
-            patch.object(NoopAgent, "click", side_effect=Exception("Test error")),
+            patch.object(
+                NoopAgent, "click", new=AsyncMock(side_effect=Exception("Test error"))
+            ),
         ):
             await flow_runner.execute_flow(run, sample_flow_manifest, {})
 
@@ -219,25 +221,17 @@ class TestFlowExecution:
             status=RunStatus.PENDING,
         )
 
-        # Track agent lifecycle by mocking the methods
-        start_called = False
-        stop_called = False
-
-        def mock_start():
-            nonlocal start_called
-            start_called = True
-
-        def mock_stop():
-            nonlocal stop_called
-            stop_called = True
+        # Track agent lifecycle by mocking the async methods
+        start_mock = AsyncMock()
+        stop_mock = AsyncMock()
 
         with (
             patch("app.runtime.runner.create_browser_use_agent", return_value=None),
-            patch.object(NoopAgent, "start", side_effect=mock_start),
-            patch.object(NoopAgent, "stop", side_effect=mock_stop),
+            patch.object(NoopAgent, "start", new=start_mock),
+            patch.object(NoopAgent, "stop", new=stop_mock),
         ):
             await flow_runner.execute_flow(run, sample_flow_manifest, {})
 
         # Verify agent lifecycle methods were called
-        assert start_called, "Agent start() should have been called"
-        assert stop_called, "Agent stop() should have been called"
+        start_mock.assert_awaited_once()
+        stop_mock.assert_awaited_once()

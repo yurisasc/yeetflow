@@ -2,15 +2,38 @@
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from contextlib import AbstractAsyncContextManager
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from app.models import EventType
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Event, EventType
 from app.runtime.context import RunContext
 from app.services.event.service import EventService
 
 logger = logging.getLogger(__name__)
+
+
+def _redact(obj):
+    sensitive = [
+        "api_key",
+        "apikey",
+        "password",
+        "secret",
+        "token",
+        "authorization",
+        "cookie",
+        "set-cookie",
+    ]
+    if isinstance(obj, dict):
+        return {
+            k: ("***" if k.lower() in sensitive else _redact(v)) for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_redact(v) for v in obj]
+    return obj
 
 
 class EventEmitter:
@@ -19,7 +42,9 @@ class EventEmitter:
     def __init__(
         self,
         event_service: EventService | None = None,
-        session_getter: Callable[[], Any] | None = None,
+        session_getter: (
+            Callable[[], AbstractAsyncContextManager[AsyncSession]] | None
+        ) = None,
     ):
         self.event_service = event_service
         self.session_getter = session_getter
@@ -54,7 +79,7 @@ class EventEmitter:
             context.run_id,
             EventType.STEP_START,
             f"step_started: {step_name}",
-            {"step": step_name, "status": "running"},
+            {"step": step_name, "index": context.current_step, "status": "running"},
         )
 
     async def emit_step_completed(self, context: RunContext, step_name: str) -> None:
@@ -63,7 +88,7 @@ class EventEmitter:
             context.run_id,
             EventType.STEP_END,
             f"step_completed: {step_name}",
-            {"step": step_name, "status": "completed"},
+            {"step": step_name, "index": context.current_step, "status": "completed"},
         )
 
     async def emit_step_failed(
@@ -74,7 +99,12 @@ class EventEmitter:
             context.run_id,
             EventType.ERROR,
             f"step_failed: {step_name}",
-            {"step": step_name, "status": "failed", "error": error},
+            {
+                "step": step_name,
+                "index": context.current_step,
+                "status": "failed",
+                "error": error,
+            },
         )
 
     async def emit_checkpoint_reached(
@@ -89,10 +119,11 @@ class EventEmitter:
         # Create checkpoint payload matching data model
         checkpoint_payload = {
             "id": checkpoint_id,
-            "run_id": str(context.run_id),
             "reason": reason,
             "expected_action": expected_action,
-            "expires_at": expires_at.isoformat(),
+            "expires_at": expires_at.astimezone(
+                timezone.utc  # noqa: UP017
+            ).isoformat(),
             "status": "awaiting_input",
         }
 
@@ -113,7 +144,6 @@ class EventEmitter:
         """Emit prompt required event for human input."""
         prompt_payload = {
             "id": prompt_id,
-            "run_id": str(context.run_id),
             "message": prompt_message,
             "response_options": response_options or [],
             "status": "awaiting_input",
@@ -161,21 +191,28 @@ class EventEmitter:
 
     async def _emit_event(
         self, run_id: UUID, event_type: EventType, message: str, payload: dict[str, Any]
-    ) -> None:
+    ) -> Event | None:
         """Emit an event through the event service."""
+        # Redact sensitive data before emitting
+        safe_message = _redact(message)
+        safe_payload = _redact(payload)
+
         try:
             if self.event_service and self.session_getter:
                 async with self.session_getter() as session:
-                    await self.event_service.create_event(
+                    return await self.event_service.create_event(
                         run_id=run_id,
                         event_type=event_type,
-                        message=message,
-                        payload=payload,
+                        message=safe_message,
+                        payload=safe_payload,
                         session=session,
                     )
             else:
                 # Log to console if no event service or session getter available
-                logger.info("Event [%s]: %s - %s", event_type.name, message, payload)
+                logger.info(
+                    "Event [%s]: %s - %s", event_type.value, safe_message, safe_payload
+                )
 
         except Exception:
             logger.exception("Failed to emit event")
+        return None

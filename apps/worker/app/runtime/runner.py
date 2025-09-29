@@ -45,18 +45,18 @@ class FlowRunner:
             manifest=flow_manifest,
         )
 
-        # Initialize browser session via Steel.dev
-        await self.steel_adapter.create_session(run.id)
-
-        # Initialize browser agent (browser-use if available, fallback to noop)
-        session_info = self.steel_adapter.get_session_info(run.id) or {}
-        websocket_url = session_info.get("websocket_url")
-        agent = create_browser_use_agent(websocket_url) or NoopAgent()
-        await agent.start()
-        self._agent = agent
-        self._executor = ActionExecutor(agent, self.event_emitter)
-
         try:
+            # Initialize browser session via Steel.dev
+            await self.steel_adapter.create_session(run.id)
+
+            # Initialize browser agent (browser-use if available, fallback to noop)
+            session_info = self.steel_adapter.get_session_info(run.id) or {}
+            websocket_url = session_info.get("websocket_url")
+            agent = create_browser_use_agent(websocket_url) or NoopAgent()
+            await agent.start()
+            self._agent = agent
+            self._executor = ActionExecutor(agent, self.event_emitter)
+
             # Update run status to running
             await self.run_service.update_run_status(run.id, "running")
 
@@ -86,9 +86,17 @@ class FlowRunner:
             # Cleanup agent and Steel session
             try:
                 if self._agent:
-                    await self._agent.stop()
+                    try:
+                        await asyncio.wait_for(self._agent.stop(), timeout=10.0)
+                    except TimeoutError:
+                        logger.warning("Agent stop timed out for run %s", run.id)
             finally:
-                await self.steel_adapter.close_session(run.id)
+                try:
+                    await asyncio.wait_for(
+                        self.steel_adapter.close_session(run.id), timeout=10.0
+                    )
+                except TimeoutError:
+                    logger.warning("Session close timed out for run %s", run.id)
 
     async def _execute_flow_steps(self, context: RunContext) -> bool:
         """Execute individual flow steps (placeholder implementation).
@@ -106,6 +114,8 @@ class FlowRunner:
 
         for i, step in enumerate(steps):
             step_name = step.get("name", f"Step {i + 1}")
+
+            context.current_step = i + 1  # 1-based indexing for traceability
 
             # Emit step start
             await self.event_emitter.emit_step_started(context, step_name)
