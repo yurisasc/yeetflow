@@ -1,4 +1,6 @@
-"""Steel.dev browser automation adapter."""
+"""Steel.dev browser automation adapter implementing SessionProvider port."""
+
+from __future__ import annotations
 
 import logging
 from typing import Any
@@ -6,13 +8,14 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.runtime.core import SessionProvider
 from app.services.run.repository import RunRepository
 from app.services.steel_service import SteelService
 
 logger = logging.getLogger(__name__)
 
 
-class SteelBrowserAdapter:
+class SteelBrowserAdapter(SessionProvider):
     """Adapter for Steel.dev browser automation."""
 
     def __init__(self, db: AsyncSession, steel_service: SteelService):

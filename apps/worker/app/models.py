@@ -41,6 +41,7 @@ class RunStatus(str, Enum):
     AWAITING_INPUT = "awaiting_input"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELED = "canceled"
 
 
 class SessionStatus(str, Enum):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.runtime.executor import BrowserAgentProtocol
+from app.runtime.agents.base import BrowserAgentProtocol
 
 logger = logging.getLogger(__name__)
 
