@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.db import AsyncSessionLocal
 from app.models import Flow, User, UserRole
-from app.runtime.registry import FlowRegistry
+from app.runtime.flows.registry import FlowRegistry
 
 logger = logging.getLogger(__name__)
 _seed_tasks: set[asyncio.Task[None]] = set()

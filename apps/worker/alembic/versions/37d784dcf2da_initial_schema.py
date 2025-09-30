@@ -1,8 +1,8 @@
-"""Initial schema
+"""initial schema
 
-Revision ID: 02c49f2fa2ea
+Revision ID: 37d784dcf2da
 Revises:
-Create Date: 2025-09-21 23:47:47.692041
+Create Date: 2025-10-01 02:45:11.815042
 
 """
 
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import sqlite
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "02c49f2fa2ea"
+revision: str = "37d784dcf2da"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -48,16 +48,25 @@ def upgrade() -> None:
         sa.Column("key", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column("created_by", sa.Uuid(), nullable=False),
+        sa.Column("config", sqlite.JSON(), nullable=False),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_by", sa.Uuid(), nullable=False),
         sa.ForeignKeyConstraint(["created_by"], ["user.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("flow", schema=None) as batch_op:
         batch_op.create_index(
+            "ix_flow_created_at_id", ["created_at", "id"], unique=False
+        )
+        batch_op.create_index(
             batch_op.f("ix_flow_created_by"), ["created_by"], unique=False
+        )
+        batch_op.create_index(
+            "ix_flow_created_by_created_at_id",
+            ["created_by", "created_at", "id"],
+            unique=False,
         )
         batch_op.create_index(batch_op.f("ix_flow_key"), ["key"], unique=True)
 
@@ -71,9 +80,9 @@ def upgrade() -> None:
                 "awaiting_input",
                 "completed",
                 "failed",
+                "canceled",
                 name="runstatus",
             ),
-            server_default="pending",
             nullable=False,
         ),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
@@ -90,26 +99,29 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("run", schema=None) as batch_op:
+        batch_op.create_index(
+            "idx_runs_user_id_created_at", ["user_id", "created_at"], unique=False
+        )
         batch_op.create_index(batch_op.f("ix_run_flow_id"), ["flow_id"], unique=False)
         batch_op.create_index(
             "ix_run_user_created_at_id", ["user_id", "created_at", "id"], unique=False
         )
         batch_op.create_index(batch_op.f("ix_run_user_id"), ["user_id"], unique=False)
-        batch_op.create_index(
-            "idx_runs_user_id_created_at", ["user_id", "created_at"], unique=False
-        )
 
     op.create_table(
         "event",
         sa.Column(
             "type",
             sa.Enum(
-                "progress",
-                "action_required",
-                "action_ack",
-                "completed",
-                "failed",
-                "run_continued",
+                "status",
+                "log",
+                "step_start",
+                "step_end",
+                "checkpoint",
+                "prompt",
+                "artifact",
+                "screenshot",
+                "error",
                 name="eventtype",
             ),
             nullable=False,
@@ -166,13 +178,15 @@ def downgrade() -> None:
     with op.batch_alter_table("run", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_run_user_id"))
         batch_op.drop_index("ix_run_user_created_at_id")
-        batch_op.drop_index("idx_runs_user_id_created_at")
         batch_op.drop_index(batch_op.f("ix_run_flow_id"))
+        batch_op.drop_index("idx_runs_user_id_created_at")
 
     op.drop_table("run")
     with op.batch_alter_table("flow", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_flow_key"))
+        batch_op.drop_index("ix_flow_created_by_created_at_id")
         batch_op.drop_index(batch_op.f("ix_flow_created_by"))
+        batch_op.drop_index("ix_flow_created_at_id")
 
     op.drop_table("flow")
     with op.batch_alter_table("user", schema=None) as batch_op:
@@ -180,11 +194,3 @@ def downgrade() -> None:
 
     op.drop_table("user")
     # ### end Alembic commands ###
-
-    # Clean up enums on Postgres
-    bind = op.get_bind()
-    if bind.dialect.name == "postgresql":
-        op.execute("DROP TYPE IF EXISTS userrole")
-        op.execute("DROP TYPE IF EXISTS runstatus")
-        op.execute("DROP TYPE IF EXISTS eventtype")
-        op.execute("DROP TYPE IF EXISTS sessionstatus")

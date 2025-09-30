@@ -1,13 +1,13 @@
-"""Integration tests for flow execution with FlowRunner."""
+"""Integration tests for flow execution with FlowEngine."""
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.automation.agents.noop import NoopAgent
 from app.models import Run, RunStatus
-from app.runtime.runner import FlowRunner
+from app.runtime import FlowEngine
+from app.runtime.agents.noop import NoopAgent
 
 
 @pytest.mark.asyncio
@@ -54,27 +54,64 @@ class TestFlowExecution:
     def mock_run_service(self):
         """Mock RunService for testing."""
         service = MagicMock()
-        service.update_run_status = AsyncMock()
+        service.update_run = AsyncMock()
         return service
 
     @pytest.fixture
     def mock_steel_adapter(self):
         """Mock SteelBrowserAdapter for testing."""
         adapter = MagicMock()
-        adapter.create_session = AsyncMock(return_value="https://test-session-url.com")
+        adapter.attach_to_session = AsyncMock()
         adapter.get_session_info = MagicMock(return_value={"websocket_url": None})
         adapter.close_session = AsyncMock()
         return adapter
 
     @pytest.fixture
-    async def flow_runner(self, mock_run_service, mock_steel_adapter):
-        """Create FlowRunner with mocked dependencies."""
-        return FlowRunner(mock_run_service, mock_steel_adapter)
+    async def flow_engine(self, mock_run_service, mock_steel_adapter):
+        """Create FlowEngine with mocked dependencies and inline coordinator."""
+        # Mock session
+        mock_session = MagicMock()
 
-    async def test_flow_executes_actions_and_stops_at_checkpoint(
-        self, flow_runner, sample_flow_manifest, mock_run_service, mock_steel_adapter
+        # Mock event emitter
+        mock_event_emitter = MagicMock()
+        mock_event_emitter.emit_run_started = AsyncMock()
+        mock_event_emitter.emit_run_completed = AsyncMock()
+        mock_event_emitter.emit_step_started = AsyncMock()
+        mock_event_emitter.emit_step_completed = AsyncMock()
+        mock_event_emitter.emit_step_failed = AsyncMock()
+        mock_event_emitter.emit_checkpoint_reached = AsyncMock()
+        mock_event_emitter.emit_run_failed = AsyncMock()
+
+        class InlineCoordinator:
+            async def start(self, _run_id, coro):
+                await coro
+
+            async def await_resume(self, _run_id, timeout_s: int = 900) -> bool:
+                # Simulate no resume (timeout) for checkpoint tests
+                _ = timeout_s
+                return False
+
+            def resume(self, _run_id, _input_payload=None) -> None:  # pragma: no cover
+                return
+
+            def latest_input(self, _run_id):  # pragma: no cover
+                return None
+
+            def cleanup(self, _run_id):  # pragma: no cover
+                return
+
+        return FlowEngine(
+            run_service=mock_run_service,
+            session_provider=mock_steel_adapter,
+            session=mock_session,
+            event_emitter=mock_event_emitter,
+            coordinator=InlineCoordinator(),
+        )
+
+    async def test_flow_executes_actions_and_times_out_at_checkpoint(
+        self, flow_engine, sample_flow_manifest, mock_run_service, mock_steel_adapter
     ):
-        """Test that flow executes actions and pauses at checkpoint without teardown."""
+        """Test that flow hits checkpoint, times out, and tears down resources."""
         # Create a test run
         run = Run(
             id=uuid.uuid4(),
@@ -85,34 +122,44 @@ class TestFlowExecution:
 
         input_payload = {}
 
-        # Execute the flow
-        with patch("app.runtime.runner.create_browser_use_agent", return_value=None):
-            await flow_runner.execute_flow(run, sample_flow_manifest, input_payload)
+        # Execute the flow (timeout path)
+        await flow_engine.start(run, sample_flow_manifest, input_payload)
 
-        # Verify Steel session was created
-        mock_steel_adapter.create_session.assert_called_once_with(run.id)
+        # Verify Steel session was attached
+        mock_steel_adapter.attach_to_session.assert_called_once_with(run.id)
 
         # Verify run status was updated to running
-        mock_run_service.update_run_status.assert_any_call(run.id, "running")
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": RunStatus.RUNNING}, ANY
+        )
 
-        # Verify run status was updated to awaiting_input (not completed!)
-        mock_run_service.update_run_status.assert_any_call(run.id, "awaiting_input")
+        # Verify run status was updated to awaiting_input before timeout
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": RunStatus.AWAITING_INPUT}, ANY
+        )
 
         # Verify run was NOT marked as completed (should not be in call list)
         completed_calls = [
             call
-            for call in mock_run_service.update_run_status.call_args_list
-            if call[0][1] == "completed"
+            for call in mock_run_service.update_run.call_args_list
+            if call[0][1].get("status") == RunStatus.COMPLETED
         ]
         assert len(completed_calls) == 0, (
             "Flow should not be marked as completed when paused at checkpoint"
         )
 
-        # Verify session was NOT closed (resources preserved for resume)
-        mock_steel_adapter.close_session.assert_not_called()
+        # Verify run was eventually marked as failed due to timeout
+        mock_run_service.update_run.assert_any_call(
+            run.id,
+            {"status": RunStatus.FAILED, "error": "Run execution timed out"},
+            ANY,
+        )
+
+        # Verify session was closed after timeout cleanup
+        mock_steel_adapter.close_session.assert_called_once_with(run.id)
 
     async def test_flow_completes_when_no_checkpoint(
-        self, flow_runner, mock_run_service
+        self, flow_engine, mock_run_service
     ):
         """Test that flow completes fully when there are no checkpoints."""
         # Flow manifest with only actions, no checkpoint
@@ -143,14 +190,15 @@ class TestFlowExecution:
             status=RunStatus.PENDING,
         )
 
-        with patch("app.runtime.runner.create_browser_use_agent", return_value=None):
-            await flow_runner.execute_flow(run, simple_flow, {})
+        await flow_engine.start(run, simple_flow, {})
 
         # Verify run was marked as completed
-        mock_run_service.update_run_status.assert_any_call(run.id, "completed")
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": RunStatus.COMPLETED}, ANY
+        )
 
     async def test_flow_handles_action_execution_errors(
-        self, flow_runner, sample_flow_manifest, mock_run_service
+        self, flow_engine, sample_flow_manifest, mock_run_service
     ):
         """Test that flow properly handles errors during action execution."""
         # Create run
@@ -161,21 +209,18 @@ class TestFlowExecution:
             status=RunStatus.PENDING,
         )
 
-        with (
-            patch("app.runtime.runner.create_browser_use_agent", return_value=None),
-            patch.object(
-                NoopAgent, "click", new=AsyncMock(side_effect=Exception("Test error"))
-            ),
+        with patch.object(
+            NoopAgent, "click", new=AsyncMock(side_effect=Exception("Test error"))
         ):
-            await flow_runner.execute_flow(run, sample_flow_manifest, {})
+            await flow_engine.start(run, sample_flow_manifest, {})
 
         # Verify run was marked as failed
-        mock_run_service.update_run_status.assert_any_call(
-            run.id, "failed", error="Test error"
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": RunStatus.FAILED, "error": "Test error"}, ANY
         )
 
     async def test_checkpoint_emits_proper_event_data(
-        self, flow_runner, sample_flow_manifest
+        self, flow_engine, sample_flow_manifest
     ):
         """Test that checkpoint emits event with correct data structure."""
         run = Run(
@@ -196,10 +241,9 @@ class TestFlowExecution:
             "emit_run_failed",
         ]:
             setattr(mock_event_emitter, method_name, AsyncMock())
-        flow_runner.event_emitter = mock_event_emitter
+        flow_engine.event_emitter = mock_event_emitter
 
-        with patch("app.runtime.runner.create_browser_use_agent", return_value=None):
-            await flow_runner.execute_flow(run, sample_flow_manifest, {})
+        await flow_engine.start(run, sample_flow_manifest, {})
 
         # Verify checkpoint event was emitted with correct data
         mock_event_emitter.emit_checkpoint_reached.assert_called_once()
@@ -213,7 +257,7 @@ class TestFlowExecution:
         assert reason == "Please verify the form was filled correctly"
         assert expected_action == "confirm"
 
-    async def test_agent_lifecycle_management(self, flow_runner):
+    async def test_agent_lifecycle_management(self, flow_engine):
         """Test that browser agent is properly started and stopped on completion."""
         run = Run(
             id=uuid.uuid4(),
@@ -248,11 +292,10 @@ class TestFlowExecution:
         }
 
         with (
-            patch("app.runtime.runner.create_browser_use_agent", return_value=None),
             patch.object(NoopAgent, "start", new=start_mock),
             patch.object(NoopAgent, "stop", new=stop_mock),
         ):
-            await flow_runner.execute_flow(run, simple_flow, {})
+            await flow_engine.start(run, simple_flow, {})
 
         # Verify agent lifecycle methods were called
         start_mock.assert_awaited_once()

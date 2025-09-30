@@ -69,6 +69,42 @@ class SteelService:
             return session_data
 
     @retry_network_operation()
+    async def get_session_info(self, session_id: str) -> dict | None:
+        """Fetch latest Steel.dev session info (including websocket/connect URL).
+
+        Returns provider fields such as `websocketUrl` or `connectUrl` if present.
+        """
+        if self.dev_mode:
+            # Return a stable mock including a websocket URL
+            return {
+                "id": session_id,
+                "sessionViewerUrl": f"https://dev.steel.dev/session/{session_id}",
+                "websocketUrl": f"wss://dev.steel.dev/session/{session_id}/ws",
+                "debugUrl": f"https://dev.steel.dev/debug/{session_id}",
+                "createdAt": "2025-09-18T11:00:00.000Z",
+                "status": "live",
+            }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self.base_url}/sessions/{session_id}",
+                headers={"steel-api-key": self.api_key},
+            )
+
+            if should_retry_http_response(response):
+                response.raise_for_status()
+
+            if response.status_code != HTTPStatus.OK:
+                logger.error(
+                    "Failed to get Steel session info: %s - %s",
+                    response.status_code,
+                    response.text,
+                )
+                return None
+
+            return response.json()
+
+    @retry_network_operation()
     async def release_session(self, session_id: str) -> bool:
         """Release a Steel.dev browser session with retry logic."""
         if self.dev_mode:
