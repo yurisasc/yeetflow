@@ -108,10 +108,10 @@ class TestFlowExecution:
             coordinator=InlineCoordinator(),
         )
 
-    async def test_flow_executes_actions_and_stops_at_checkpoint(
+    async def test_flow_executes_actions_and_times_out_at_checkpoint(
         self, flow_engine, sample_flow_manifest, mock_run_service, mock_steel_adapter
     ):
-        """Test that flow executes actions and pauses at checkpoint without teardown."""
+        """Test that flow hits checkpoint, times out, and tears down resources."""
         # Create a test run
         run = Run(
             id=uuid.uuid4(),
@@ -122,7 +122,7 @@ class TestFlowExecution:
 
         input_payload = {}
 
-        # Execute the flow
+        # Execute the flow (timeout path)
         await flow_engine.start(run, sample_flow_manifest, input_payload)
 
         # Verify Steel session was attached
@@ -133,7 +133,7 @@ class TestFlowExecution:
             run.id, {"status": RunStatus.RUNNING}, ANY
         )
 
-        # Verify run status was updated to awaiting_input (not completed!)
+        # Verify run status was updated to awaiting_input before timeout
         mock_run_service.update_run.assert_any_call(
             run.id, {"status": RunStatus.AWAITING_INPUT}, ANY
         )
@@ -148,8 +148,15 @@ class TestFlowExecution:
             "Flow should not be marked as completed when paused at checkpoint"
         )
 
-        # Verify session was NOT closed (resources preserved for resume)
-        mock_steel_adapter.close_session.assert_not_called()
+        # Verify run was eventually marked as failed due to timeout
+        mock_run_service.update_run.assert_any_call(
+            run.id,
+            {"status": RunStatus.FAILED, "error": "Run execution timed out"},
+            ANY,
+        )
+
+        # Verify session was closed after timeout cleanup
+        mock_steel_adapter.close_session.assert_called_once_with(run.id)
 
     async def test_flow_completes_when_no_checkpoint(
         self, flow_engine, mock_run_service

@@ -56,9 +56,9 @@ class FlowEngine:
         self.session_provider = session_provider
         self._coordinator = coordinator or RunnerCoordinator()
 
-        self._agent: Agent | None = None
-        self._executor: ActionExecutor | None = None
-        self._fsm: RunStateMachine | None = None
+        self._agents: dict[UUID, Agent] = {}
+        self._executors: dict[UUID, ActionExecutor] = {}
+        self._fsms: dict[UUID, RunStateMachine] = {}
 
     async def start(
         self, run: Run, manifest: dict[str, Any], input_payload: dict[str, Any]
@@ -84,7 +84,7 @@ class FlowEngine:
         flow_completed = False
         failed = False
         try:
-            self._init_fsm()
+            self._init_fsm(context.run_id)
             await self._attach_session(context.run_id)
             await self._setup_agent_and_executor(context.run_id)
             await self._update_run_status(context.run_id, RunStatus.RUNNING)
@@ -117,8 +117,9 @@ class FlowEngine:
 
     async def _setup_agent_and_executor(self, run_id: UUID) -> None:
         agent: Agent = await AgentFactory.create(self.session_provider, run_id)
-        self._agent = agent
-        self._executor = ActionExecutor(agent, self.event_emitter)
+        executor = ActionExecutor(agent, self.event_emitter)
+        self._agents[run_id] = agent
+        self._executors[run_id] = executor
 
     async def _execute_steps(self, context: RunContext) -> bool:
         steps = parse_manifest_steps(context.manifest or {})
@@ -179,7 +180,11 @@ class FlowEngine:
             raise timeout_error
 
         # Action step
-        await self._executor.execute_action(context, step, step_name)
+        executor = self._executors.get(context.run_id)
+        if executor is None:
+            msg = f"No executor registered for run {context.run_id}"
+            raise RuntimeError(msg)
+        await executor.execute_action(context, step, step_name)
         return True
 
     async def _handle_completion(self, context: RunContext) -> None:
@@ -188,16 +193,19 @@ class FlowEngine:
 
     async def _handle_error(self, context: RunContext, error: Exception) -> None:
         logger.exception("Flow execution failed for run %s", context.run_id)
+        error_message = (
+            "Run execution timed out" if isinstance(error, TimeoutError) else str(error)
+        )
         await self.run_service.update_run(
             context.run_id,
             {
                 "status": RunStatus.FAILED,
-                "error": str(error),
+                "error": error_message,
             },
             self.session,
         )
         try:
-            await self.event_emitter.emit_run_failed(context, str(error))
+            await self.event_emitter.emit_run_failed(context, error_message)
         except Exception as emit_error:
             logger.exception(
                 "Failed to emit run_failed event for run %s | original error: %s",
@@ -217,7 +225,7 @@ class FlowEngine:
             )
             return
         try:
-            agent = self._agent
+            agent = self._agents.get(run_id)
             if agent is not None:
                 stop_fn = getattr(agent, "stop", None)
                 if stop_fn is not None:
@@ -244,11 +252,15 @@ class FlowEngine:
                 )
             finally:
                 self._coordinator.cleanup(run_id)
+                self._agents.pop(run_id, None)
+                self._executors.pop(run_id, None)
+                self._fsms.pop(run_id, None)
 
     async def _update_run_status(self, run_id: UUID, status: RunStatus) -> None:
-        if self._fsm is not None:
-            self._fsm.transition(status.value)
+        fsm = self._fsms.get(run_id)
+        if fsm is not None:
+            fsm.transition(status.value)
         await self.run_service.update_run(run_id, {"status": status}, self.session)
 
-    def _init_fsm(self) -> None:
-        self._fsm = RunStateMachine("pending")
+    def _init_fsm(self, run_id: UUID) -> None:
+        self._fsms[run_id] = RunStateMachine("pending")
