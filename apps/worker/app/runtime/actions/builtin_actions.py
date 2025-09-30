@@ -31,7 +31,7 @@ class TypeAction(RequiresParam):
 
     async def execute(self, execution: ActionExecution) -> None:
         selector = self.require(self.params, "selector")
-        text = self.require(self.params, "text")
+        text = self.require(self.params, "text", allow_empty=True)
         clear = bool(self.params.get("clear", False))
         await execution.agent.type(selector, text, clear=clear)
 

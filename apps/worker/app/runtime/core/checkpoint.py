@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any, TypedDict
 
 from .context import RunContext
@@ -16,18 +17,26 @@ class ContextMemento(TypedDict, total=False):
 
 
 def snapshot_context(ctx: RunContext) -> ContextMemento:
-    """Create a minimal snapshot of a `RunContext` state."""
+    """Create a minimal snapshot of a `RunContext` state.
+
+    Variables are deep-copied to avoid sharing nested mutable state with the
+    live context.
+    """
     return ContextMemento(
         run_id=str(ctx.run_id),
         flow_id=str(ctx.flow_id),
         user_id=str(ctx.user_id),
         current_step=int(ctx.current_step),
-        variables=dict(ctx.variables),
+        variables=deepcopy(ctx.variables),
     )
 
 
 def restore_context(ctx: RunContext, memento: ContextMemento) -> None:
-    """Restore selected fields into an existing `RunContext`."""
+    """Restore selected fields into an existing `RunContext`.
+
+    Variables are merged additively: keys present in the memento override the
+    current values, while keys absent from the memento remain untouched.
+    """
     ctx.current_step = int(memento.get("current_step", ctx.current_step))
     for k, v in (memento.get("variables") or {}).items():
         ctx.variables[k] = v

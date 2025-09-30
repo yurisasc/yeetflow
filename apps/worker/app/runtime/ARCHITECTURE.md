@@ -26,13 +26,16 @@ flowchart LR
   subgraph Engine
     FE[FlowEngine]
     EX[ActionExecutor]
-    MW[Middleware Chain]\n- EventMiddleware\n- Logging\n- ErrorScreenshot
+    MW[Middleware Chain]
+    MW --> MWEvents[EventMiddleware]
+    MW --> MWLog[Logging]
+    MW --> MWError[ErrorScreenshot]
     EE[EventEmitter]
   end
 
   subgraph Adapters
     AF[AgentFactory]
-    SP[SessionProvider\n(SteelAdapter)]
+    SP["SessionProvider<br/>(SteelAdapter)"]
     AG[Agent]
   end
 
@@ -42,7 +45,7 @@ flowchart LR
     DB[(DB)]
   end
 
-  C -->|start(run, manifest, input)| FE
+  C -->|"start(run, manifest, input)"| FE
   FE --> SP
   FE --> AF --> AG
   FE --> EE
@@ -64,14 +67,14 @@ sequenceDiagram
   participant SP as SessionProvider
   participant AF as AgentFactory
   participant AG as Agent
-  participant EX as ActionExecutor(+Middleware)
+  participant EX as ActionExecutor + Middleware
   participant EE as EventEmitter
   participant RS as RunService
 
   C->>FE: start(runId, manifest, input)
   FE->>SP: attach_to_session(runId)
-  FE->>AF: create(runId) 
-  AF-->>FE: Agent
+  FE->>AF: create(runId)
+  AF-->>FE: provide Agent
   FE->>AG: start()
   FE->>RS: update_run(status="running")
   FE->>EE: emit_run_started()
@@ -86,15 +89,17 @@ sequenceDiagram
       FE->>EE: emit_checkpoint_reached(...)
       FE->>RS: update_run(status="awaiting_input")
       FE->>FE: snapshot_context()
-      FE-->>C: pause (await resume via Coordinator)
+      FE-->>C: pause (await resume)
       C->>FE: resume(runId, latest_input)
-      FE->>FE: restore_context(); merge_inputs()
+      FE->>FE: restore_context()
+      FE->>FE: merge_inputs()
       FE->>RS: update_run(status="running")
     end
   end
   FE->>RS: update_run(status="completed")
   FE->>EE: emit_run_completed()
-  FE->>AG: stop(); SP.close_session()
+  FE->>AG: stop()
+  FE->>SP: close_session()
 ```
 
 ## Developer Experience (DX)

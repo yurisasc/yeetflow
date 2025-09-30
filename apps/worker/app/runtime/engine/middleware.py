@@ -104,7 +104,7 @@ class ErrorScreenshotMiddleware:
     async def before_execute(
         self, _execution: StepExecution
     ) -> None:  # pragma: no cover - no-op
-        return
+        pass
 
     async def after_execute(self, execution: StepExecutionResult) -> None:
         if execution.error is None:

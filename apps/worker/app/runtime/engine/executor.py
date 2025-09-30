@@ -68,12 +68,12 @@ class ActionExecutor:
         await self._mw.run_before(execution)
         try:
             action_exec = ActionExecution(
-                context=context,
-                agent=self.agent,
-                events=self.events,
-                action_type=action_type,
-                step_name=step_name,
-                params=params,
+                context=execution.context,
+                agent=execution.agent,
+                events=execution.events,
+                action_type=execution.action_type,
+                step_name=execution.step_name,
+                params=execution.params,
             )
             await self._execute_via_registry(action_exec)
         except Exception as exc:
@@ -81,13 +81,5 @@ class ActionExecutor:
             raise
         finally:
             await self._mw.run_after(
-                StepExecutionResult(
-                    context=context,
-                    action_type=action_type,
-                    params=params,
-                    agent=self.agent,
-                    events=self.events,
-                    step_name=step_name,
-                    error=error,
-                )
+                StepExecutionResult(**vars(execution), error=error)
             )

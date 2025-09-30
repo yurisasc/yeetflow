@@ -99,7 +99,6 @@ class SteelBrowserAdapter(SessionProvider):
             success = await self.steel_service.release_session(session_id)
             if not success:
                 logger.warning("Failed to release Steel session %s", session_id)
-                return
 
         self.sessions.pop(run_id, None)
         logger.info("Closed browser session for run %s", run_id)

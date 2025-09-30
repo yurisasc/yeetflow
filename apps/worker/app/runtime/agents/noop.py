@@ -33,10 +33,10 @@ class NoopAgent(BrowserAgentProtocol):
             clear,
         )
 
-    async def wait_for(self, selector: str, timeout_ms: int = 10000) -> None:
+    async def wait_for(self, selector: str, *, timeout_ms: int = 10000) -> None:
         logger.info("noop wait_for: %s (timeout=%sms)", selector, timeout_ms)
 
-    async def extract(self, selector: str, attr: str | None = None) -> Any:
+    async def extract(self, selector: str, *, attr: str | None = None) -> Any:
         logger.info("noop extract: selector=%s attr=%s", selector, attr)
         # Return placeholder value
         return None

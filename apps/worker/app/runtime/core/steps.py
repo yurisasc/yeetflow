@@ -6,8 +6,11 @@ normalizes a manifest dict into a list of typed steps.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -63,6 +66,7 @@ def parse_manifest_steps(manifest: dict[str, Any]) -> list[ActionStep | Checkpoi
     typed: list[ActionStep | CheckpointStep] = []
     for raw in steps_data:
         if not isinstance(raw, dict):
+            logger.debug("Skipping non-dict step: %s", raw)
             continue
         step_type = (raw.get("type") or "").lower()
         if step_type == "action":
@@ -70,6 +74,10 @@ def parse_manifest_steps(manifest: dict[str, Any]) -> list[ActionStep | Checkpoi
             name = raw.get("name")
             if isinstance(action, dict):
                 typed.append(ActionStep(name=name, action=action))
+            else:
+                logger.debug(
+                    "Skipping action step with non-dict action payload: %s", raw
+                )
         elif step_type == "checkpoint":
             typed.append(
                 CheckpointStep(

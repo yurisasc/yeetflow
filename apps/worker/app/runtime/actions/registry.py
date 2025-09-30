@@ -13,6 +13,9 @@ _REGISTRY: dict[str, Callable[[dict[str, Any]], Action]] = {}
 def register(name: str, factory: Callable[[dict[str, Any]], Action]) -> None:
     """Register an action factory under a name."""
     key = (name or "").lower()
+    if not key:
+        msg = "Action name cannot be empty"
+        raise ValueError(msg)
     _REGISTRY[key] = factory
 
 
@@ -27,4 +30,5 @@ def create(action_type: str, params: dict[str, Any]) -> Action:
 
 
 def known_actions() -> list[str]:
+    """Return a sorted list of all registered action type names."""
     return sorted(_REGISTRY.keys())

@@ -34,8 +34,18 @@ class RequiresParam:
     """Mixin with helpers for required parameters."""
 
     @staticmethod
-    def require(d: dict[str, Any], key: str) -> Any:
-        if key not in d or d[key] in (None, ""):
+    def require(d: dict[str, Any], key: str, *, allow_empty: bool = False) -> Any:
+        if key not in d:
             msg = f"Missing required action param: {key}"
             raise ValueError(msg)
-        return d[key]
+
+        value = d[key]
+        if value is None:
+            msg = f"Missing required action param: {key}"
+            raise ValueError(msg)
+
+        if not allow_empty and value == "":
+            msg = f"Missing required action param: {key}"
+            raise ValueError(msg)
+
+        return value

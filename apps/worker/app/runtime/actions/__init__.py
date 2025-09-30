@@ -9,4 +9,4 @@ from . import builtin_actions as _builtin_actions  # noqa: F401
 from .registry import known_actions
 
 # Optional: log available actions once at import time
-logging.getLogger(__name__).info("Registered actions: %s", known_actions())
+logging.getLogger(__name__).debug("Registered actions: %s", known_actions())

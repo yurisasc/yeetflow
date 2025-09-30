@@ -8,9 +8,11 @@ from pathlib import Path
 # Add parent directory to sys.path to make app package discoverable when Alembic runs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
+from sqlmodel.sql.sqltypes import AutoString
 
 from alembic import context
 from app.config import get_database_url
@@ -36,6 +38,23 @@ config.set_main_option("sqlalchemy.url", database_url)
 target_metadata = SQLModel.metadata
 
 
+def render_item(type_, obj, autogen_context):
+    """Ensure enums are rendered with their value strings."""
+
+    if type_ == "type":
+        if isinstance(obj, SQLEnum) and getattr(obj, "enum_class", None):
+            values = ", ".join(repr(member.value) for member in obj.enum_class)
+            enum_name = (
+                obj.name if obj.name is not None else obj.enum_class.__name__.lower()
+            )
+            return f"sa.Enum({values}, name={enum_name!r})"
+
+        if isinstance(obj, AutoString):
+            autogen_context.imports.add("import sqlmodel")
+            return "sqlmodel.sql.sqltypes.AutoString()"
+    return False
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -58,6 +77,7 @@ def run_migrations_offline() -> None:
         compare_type=True,
         compare_server_default=True,
         render_as_batch=is_sqlite,
+        render_item=render_item,
     )
 
     with context.begin_transaction():
@@ -73,6 +93,7 @@ def do_run_migrations(connection):
         compare_type=True,
         compare_server_default=True,
         render_as_batch=is_sqlite,
+        render_item=render_item,
     )
     with context.begin_transaction():
         context.run_migrations()

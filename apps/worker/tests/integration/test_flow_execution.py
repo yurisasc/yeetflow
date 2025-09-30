@@ -97,6 +97,9 @@ class TestFlowExecution:
             def latest_input(self, _run_id):  # pragma: no cover
                 return None
 
+            def cleanup(self, _run_id):  # pragma: no cover
+                return
+
         return FlowEngine(
             run_service=mock_run_service,
             session_provider=mock_steel_adapter,

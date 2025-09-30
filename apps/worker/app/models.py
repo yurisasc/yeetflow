@@ -6,8 +6,8 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, HttpUrl, model_validator
 from pydantic import Field as PydField
+from sqlalchemy import DateTime, Index
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Index
 from sqlalchemy.dialects.sqlite import JSON
 from sqlmodel import Column, Field, ForeignKey, Relationship, SQLModel
 
@@ -23,7 +23,12 @@ class UserBase(SQLModel):
     role: UserRole = Field(
         default=UserRole.USER,
         sa_column=Column(
-            SQLEnum(UserRole), server_default=UserRole.USER.value, nullable=False
+            SQLEnum(
+                UserRole,
+                values_callable=lambda enum: [member.value for member in enum],
+            ),
+            server_default=UserRole.USER.value,
+            nullable=False,
         ),
     )
 
@@ -65,8 +70,14 @@ class EventType(str, Enum):
 
 class RunBase(SQLModel):
     status: RunStatus = RunStatus.PENDING
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
+    started_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+    ended_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
     error: str | None = None
     result_uri: str | None = None
 
@@ -76,29 +87,55 @@ class SessionBase(SQLModel):
     status: SessionStatus = Field(
         default=SessionStatus.STARTING,
         sa_column=Column(
-            SQLEnum(SessionStatus),
+            SQLEnum(
+                SessionStatus,
+                values_callable=lambda enum: [member.value for member in enum],
+            ),
             server_default=SessionStatus.STARTING.value,
             nullable=False,
         ),
     )
     session_url: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    ended_at: datetime | None = None
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    ended_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
 
 
 class EventBase(SQLModel):
-    type: EventType = Field(sa_column=Column(SQLEnum(EventType), nullable=False))
+    type: EventType = Field(
+        sa_column=Column(
+            SQLEnum(
+                EventType,
+                values_callable=lambda enum: [member.value for member in enum],
+            ),
+            nullable=False,
+        )
+    )
     message: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
-    at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
 
 # Table models
 class User(UserBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     password_hash: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     flows: list["Flow"] = Relationship(back_populates="user", cascade_delete=True)
     runs: list["Run"] = Relationship(back_populates="user", cascade_delete=True)
@@ -106,8 +143,14 @@ class User(UserBase, table=True):
 
 class Flow(FlowBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     created_by: UUID = Field(
         sa_column=Column(
@@ -125,8 +168,14 @@ class Flow(FlowBase, table=True):
 
 class Run(RunBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     flow_id: UUID = Field(
         sa_column=Column(

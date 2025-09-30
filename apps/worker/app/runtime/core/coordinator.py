@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from typing import Any
 from uuid import UUID
 
@@ -23,7 +24,7 @@ class RunnerCoordinator:
     def set_task(self, run_id: UUID, task: asyncio.Task) -> None:
         self._tasks[run_id] = task
 
-    async def start(self, run_id: UUID, coro: asyncio.coroutine) -> None:
+    async def start(self, run_id: UUID, coro: Awaitable[None]) -> None:
         """Start a background task for a run."""
         task = asyncio.create_task(coro)
         self.set_task(run_id, task)
@@ -49,3 +50,11 @@ class RunnerCoordinator:
 
     def latest_input(self, run_id: UUID) -> dict[str, Any] | None:
         return self._latest_inputs.get(run_id)
+
+    def cleanup(self, run_id: UUID) -> None:
+        """Remove stored state for a finished run."""
+        self._events.pop(run_id, None)
+        self._latest_inputs.pop(run_id, None)
+        task = self._tasks.pop(run_id, None)
+        if task is not None and not task.done():
+            task.cancel()

@@ -179,7 +179,15 @@ class FlowEngine:
             },
             self.session,
         )
-        await self.event_emitter.emit_run_failed(context, str(error))
+        try:
+            await self.event_emitter.emit_run_failed(context, str(error))
+        except Exception as emit_error:
+            logger.exception(
+                "Failed to emit run_failed event for run %s | original error: %s",
+                context.run_id,
+                error,
+                exc_info=emit_error,
+            )
 
     async def _cleanup(
         self, run_id: UUID, *, failed: bool, flow_completed: bool
@@ -204,6 +212,8 @@ class FlowEngine:
                 )
             except TimeoutError:
                 logger.warning("Session close timed out for run %s", run_id)
+            finally:
+                self._coordinator.cleanup(run_id)
 
     async def _update_run_status(self, run_id: UUID, status: RunStatus) -> None:
         if self._fsm is not None:
