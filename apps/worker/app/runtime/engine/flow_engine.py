@@ -69,6 +69,14 @@ class FlowEngine:
 
     async def resume(self, run_id: UUID, latest_input: dict[str, Any]) -> None:
         """Signal resume with latest input."""
+        if not self._coordinator.has_task(run_id) or not self._coordinator.has_event(
+            run_id
+        ):
+            msg = (
+                "Run coordinator state missing; background task is not active for "
+                "resume"
+            )
+            raise RuntimeError(msg)
         await self._update_run_status(run_id, RunStatus.RUNNING)
         self._coordinator.resume(run_id, latest_input)
 
@@ -141,6 +149,7 @@ class FlowEngine:
             expires_at = datetime.now(UTC) + timedelta(seconds=timeout_seconds)
 
             # Snapshot memento for deterministic resume
+            context.add_checkpoint(checkpoint_id, {})
             memento = snapshot_context(context)
             context.add_checkpoint(checkpoint_id, memento)
 
@@ -158,6 +167,12 @@ class FlowEngine:
                 context.input_payload = merge_inputs(context.input_payload, latest)
                 await self._update_run_status(context.run_id, RunStatus.RUNNING)
                 return True
+            logger.info(
+                "Run %s checkpoint %s timed out waiting for resume",
+                context.run_id,
+                checkpoint_id,
+            )
+            self._coordinator.cleanup(context.run_id)
             # Not resumed: remain awaiting_input; do not cancel here
             return False
 
@@ -200,18 +215,31 @@ class FlowEngine:
             )
             return
         try:
-            if self._agent:
-                try:
-                    await asyncio.wait_for(self._agent.stop(), timeout=10.0)
-                except TimeoutError:
-                    logger.warning("Agent stop timed out for run %s", run_id)
+            agent = self._agent
+            if agent is not None:
+                stop_fn = getattr(agent, "stop", None)
+                if stop_fn is not None:
+                    try:
+                        await asyncio.wait_for(stop_fn(), timeout=10.0)
+                    except TimeoutError:
+                        logger.warning("Agent stop timed out for run %s", run_id)
+                    except Exception as agent_error:
+                        logger.exception(
+                            "Agent stop failed for run %s", run_id, exc_info=agent_error
+                        )
+                else:
+                    logger.debug("Agent for run %s has no stop() method", run_id)
         finally:
             try:
-                await asyncio.wait_for(
-                    self.session_provider.close_session(run_id), timeout=10.0
-                )
+                close_session = getattr(self.session_provider, "close_session", None)
+                if close_session is not None:
+                    await asyncio.wait_for(close_session(run_id), timeout=10.0)
             except TimeoutError:
                 logger.warning("Session close timed out for run %s", run_id)
+            except Exception as session_error:
+                logger.exception(
+                    "Session close failed for run %s", run_id, exc_info=session_error
+                )
             finally:
                 self._coordinator.cleanup(run_id)
 
