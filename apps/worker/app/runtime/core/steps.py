@@ -53,15 +53,11 @@ def parse_manifest_steps(manifest: dict[str, Any]) -> list[ActionStep | Checkpoi
     """
 
     cfg = manifest or {}
-    steps_data = (
-        (
-            (cfg.get("config") or {}).get("steps")
-            if isinstance(cfg.get("config"), dict)
-            else None
-        )
-        or cfg.get("steps")
-        or []
-    )
+    config = cfg.get("config")
+    if isinstance(config, dict) and "steps" in config:
+        steps_data = config.get("steps") or []
+    else:
+        steps_data = cfg.get("steps") or []
 
     typed: list[ActionStep | CheckpointStep] = []
     for raw in steps_data:

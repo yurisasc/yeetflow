@@ -76,7 +76,7 @@ class FlowEngine:
         flow_completed = False
         failed = False
         try:
-            self._init_fsm_from_context(context)
+            self._init_fsm()
             await self._attach_session(context.run_id)
             await self._setup_agent_and_executor(context.run_id)
             await self._update_run_status(context.run_id, RunStatus.RUNNING)
@@ -220,5 +220,5 @@ class FlowEngine:
             self._fsm.transition(status.value)
         await self.run_service.update_run(run_id, {"status": status}, self.session)
 
-    def _init_fsm_from_context(self, _context: RunContext) -> None:
+    def _init_fsm(self) -> None:
         self._fsm = RunStateMachine("pending")

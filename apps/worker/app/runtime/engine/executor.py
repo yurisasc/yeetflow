@@ -67,14 +67,7 @@ class ActionExecutor:
         )
         await self._mw.run_before(execution)
         try:
-            action_exec = ActionExecution(
-                context=execution.context,
-                agent=execution.agent,
-                events=execution.events,
-                action_type=execution.action_type,
-                step_name=execution.step_name,
-                params=execution.params,
-            )
+            action_exec = ActionExecution(**vars(execution))
             await self._execute_via_registry(action_exec)
         except Exception as exc:
             error = exc
