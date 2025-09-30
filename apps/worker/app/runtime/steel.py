@@ -4,6 +4,9 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.run.repository import RunRepository
 from app.services.steel_service import SteelService
 
 logger = logging.getLogger(__name__)
@@ -12,89 +15,74 @@ logger = logging.getLogger(__name__)
 class SteelBrowserAdapter:
     """Adapter for Steel.dev browser automation."""
 
-    def __init__(self, steel_service: SteelService | None = None):
-        self.steel_service = steel_service or SteelService()
+    def __init__(self, db: AsyncSession, steel_service: SteelService):
+        """Dependencies:
+
+        - db: direct DB session for queries
+        - steel_service: API client for Steel.dev
+        """
+        self.db = db
+        self.steel_service = steel_service
         self.sessions: dict[UUID, dict[str, Any]] = {}
 
-    async def create_session(self, run_id: UUID) -> str:
-        """Create a new browser session and return the session URL."""
-        session_data = await self.steel_service.create_session()
+    async def attach_to_session(self, run_id: UUID) -> None:
+        """Attach to an existing Steel session persisted in the DB for this run.
 
-        if not session_data:
-            msg = f"Failed to create Steel session for run {run_id}"
+        Looks up the active Session row for the run and caches essential info in
+        `self.sessions[run_id]`. This avoids creating duplicate sessions and keeps
+        the runtime attach-only per the plan.
+        """
+        # If already attached, nothing to do
+        if run_id in self.sessions:
+            return
+        try:
+            repo = RunRepository()
+            sessions = await repo.get_sessions(self.db, run_id)
+            active = next((s for s in sessions if s.ended_at is None), None)
+        except Exception:
+            logger.exception("Failed to attach to session for run %s", run_id)
+            raise
+
+        if not active:
+            msg = f"No persisted browser session found for run {run_id}"
             raise RuntimeError(msg)
 
-        session_id = session_data.get("id")
-        session_url = session_data.get("debugUrl") or session_data.get(
-            "sessionViewerUrl"
-        )
-
-        if not session_url:
-            msg = f"Steel session created but missing URL for run {run_id}"
-            raise RuntimeError(msg)
-
-        # Store session mapping
-        self.sessions[run_id] = {
-            "session_id": session_id,
-            "session_url": session_url,
-            "websocket_url": session_data.get("websocketUrl"),
-            "status": session_data.get("status", "active"),
-            "created_at": session_data.get("createdAt"),
+        # Seed mapping from DB
+        mapping: dict[str, Any] = {
+            "session_id": active.browser_provider_session_id,
+            "session_url": active.session_url,
+            "websocket_url": None,
+            "status": (
+                active.status.value
+                if hasattr(active.status, "value")
+                else str(active.status)
+            ),
+            "created_at": (
+                active.created_at.isoformat() if active.created_at else None
+            ),
         }
 
-        logger.info("Created browser session for run %s: %s", run_id, session_url)
-        return session_url
+        # Try to enrich with provider info (websocketUrl/connectUrl)
+        provider_id = active.browser_provider_session_id
+        if provider_id:
+            try:
+                info = await self.steel_service.get_session_info(provider_id)
+            except Exception:  # network failures shouldn't break attach
+                logger.exception(
+                    "Failed to fetch Steel session info for %s", provider_id
+                )
+                info = None
+            if isinstance(info, dict):
+                ws = (
+                    info.get("websocketUrl")
+                    or info.get("connectUrl")
+                    or info.get("wsUrl")
+                )
+                if ws:
+                    mapping["websocket_url"] = ws
 
-    async def execute_action(
-        self, run_id: UUID, action_type: str, action_params: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Execute a browser action."""
-        session = self.sessions.get(run_id)
-        if not session:
-            msg = f"No active session for run {run_id}"
-            raise ValueError(msg)
-
-        try:
-            # TODO: Implement actual Steel.dev action execution
-            # This would require additional Steel API endpoints for actions
-            # For now, return a placeholder result
-
-            result = {
-                "action": action_type,
-                "params": action_params,
-                "status": "completed",
-                "timestamp": None,  # Would be set by Steel API
-            }
-
-        except Exception:
-            logger.exception(
-                "Failed to execute action %s for run %s", action_type, run_id
-            )
-            raise
-        else:
-            logger.info("Executed action %s for run %s", action_type, run_id)
-            return result
-
-    async def take_screenshot(self, run_id: UUID, name: str) -> str:
-        """Take a screenshot and return the artifact reference."""
-        session = self.sessions.get(run_id)
-        if not session:
-            msg = f"No active session for run {run_id}"
-            raise ValueError(msg)
-
-        try:
-            # TODO: Implement actual Steel.dev screenshot capture
-            # This would require Steel API screenshot endpoint
-            # For now, return a placeholder reference
-
-            screenshot_ref = f"screenshot_{name}_{run_id}"
-
-        except Exception:
-            logger.exception("Failed to take screenshot for run %s", run_id)
-            raise
-        else:
-            logger.info("Took screenshot '%s' for run %s", name, run_id)
-            return screenshot_ref
+        self.sessions[run_id] = mapping
+        logger.info("Attached to existing browser session for run %s", run_id)
 
     async def close_session(self, run_id: UUID) -> None:
         """Close a browser session."""

@@ -1,8 +1,6 @@
 """Event system for flow execution and monitoring."""
 
 import logging
-from collections.abc import Callable
-from contextlib import AbstractAsyncContextManager
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
@@ -41,13 +39,11 @@ class EventEmitter:
 
     def __init__(
         self,
-        event_service: EventService | None = None,
-        session_getter: (
-            Callable[[], AbstractAsyncContextManager[AsyncSession]] | None
-        ) = None,
+        session: AsyncSession,
+        event_service: EventService,
     ):
+        self.session = session
         self.event_service = event_service
-        self.session_getter = session_getter
 
     async def emit_run_started(self, context: RunContext) -> None:
         """Emit run started event."""
@@ -119,6 +115,7 @@ class EventEmitter:
         # Create checkpoint payload matching data model
         checkpoint_payload = {
             "id": checkpoint_id,
+            "index": context.current_step,
             "reason": reason,
             "expected_action": expected_action,
             "expires_at": expires_at.astimezone(
@@ -197,22 +194,10 @@ class EventEmitter:
         safe_message = _redact(message)
         safe_payload = _redact(payload)
 
-        try:
-            if self.event_service and self.session_getter:
-                async with self.session_getter() as session:
-                    return await self.event_service.create_event(
-                        run_id=run_id,
-                        event_type=event_type,
-                        message=safe_message,
-                        payload=safe_payload,
-                        session=session,
-                    )
-            else:
-                # Log to console if no event service or session getter available
-                logger.info(
-                    "Event [%s]: %s - %s", event_type.value, safe_message, safe_payload
-                )
-
-        except Exception:
-            logger.exception("Failed to emit event")
-        return None
+        return await self.event_service.create_event(
+            run_id=run_id,
+            event_type=event_type,
+            message=safe_message,
+            payload=safe_payload,
+            session=self.session,
+        )

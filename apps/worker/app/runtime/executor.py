@@ -1,14 +1,16 @@
-"""Action executor that maps first-principles actions to a BrowserAgent."""
+"""Action executor that maps first-principles actions to a BrowserAgent.
+
+Moved from app.automation.executor to runtime to simplify boundaries.
+"""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
+from app.runtime.agents.base import BrowserAgentProtocol
 from app.runtime.context import RunContext
 from app.runtime.events import EventEmitter
-
-from .agents.base import BrowserAgent
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ActionExecutor:
     """Executes action steps against a BrowserAgent and emits events."""
 
-    def __init__(self, agent: BrowserAgent, events: EventEmitter):
+    def __init__(self, agent: BrowserAgentProtocol, events: EventEmitter):
         self.agent = agent
         self.events = events
 
@@ -96,13 +98,19 @@ class ActionExecutor:
         await self.events.emit_screenshot_taken(context, name, ref)
 
     async def _execute_log(self, context: RunContext, action: dict[str, Any]) -> None:
-        message = self._require(action, "message")
-        level = action.get("level", "info")
-        await self.events.emit_log(context, message, level)
+        message = action.get("message", "")
+        logger.info("Flow log: %s | Run: %s", message, context.run_id)
+
+    def _require(self, action: dict[str, Any], key: str) -> Any:
+        """Require a key in action dict, raise if missing."""
+        if key not in action:
+            msg = f"Action missing required field: {key}"
+            raise ValueError(msg)
+        return action[key]
 
     def _raise_unknown_action_type(self, action_type: str) -> None:
         """Raise ValueError for unknown action types."""
-        msg = "Unknown action type: %s" % (action_type or "<empty>")
+        msg = f"Unknown action type: {action_type or '<empty>'}"
         raise ValueError(msg)
 
     @staticmethod

@@ -1,12 +1,12 @@
 """Integration tests for flow execution with FlowRunner."""
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.automation.agents.noop import NoopAgent
 from app.models import Run, RunStatus
+from app.runtime.agents.noop import NoopAgent
 from app.runtime.runner import FlowRunner
 
 
@@ -54,14 +54,14 @@ class TestFlowExecution:
     def mock_run_service(self):
         """Mock RunService for testing."""
         service = MagicMock()
-        service.update_run_status = AsyncMock()
+        service.update_run = AsyncMock()
         return service
 
     @pytest.fixture
     def mock_steel_adapter(self):
         """Mock SteelBrowserAdapter for testing."""
         adapter = MagicMock()
-        adapter.create_session = AsyncMock(return_value="https://test-session-url.com")
+        adapter.attach_to_session = AsyncMock()
         adapter.get_session_info = MagicMock(return_value={"websocket_url": None})
         adapter.close_session = AsyncMock()
         return adapter
@@ -69,7 +69,25 @@ class TestFlowExecution:
     @pytest.fixture
     async def flow_runner(self, mock_run_service, mock_steel_adapter):
         """Create FlowRunner with mocked dependencies."""
-        return FlowRunner(mock_run_service, mock_steel_adapter)
+        # Mock session
+        mock_session = MagicMock()
+
+        # Mock event emitter
+        mock_event_emitter = MagicMock()
+        mock_event_emitter.emit_run_started = AsyncMock()
+        mock_event_emitter.emit_run_completed = AsyncMock()
+        mock_event_emitter.emit_step_started = AsyncMock()
+        mock_event_emitter.emit_step_completed = AsyncMock()
+        mock_event_emitter.emit_step_failed = AsyncMock()
+        mock_event_emitter.emit_checkpoint_reached = AsyncMock()
+        mock_event_emitter.emit_run_failed = AsyncMock()
+
+        return FlowRunner(
+            run_service=mock_run_service,
+            steel_adapter=mock_steel_adapter,
+            session=mock_session,
+            event_emitter=mock_event_emitter,
+        )
 
     async def test_flow_executes_actions_and_stops_at_checkpoint(
         self, flow_runner, sample_flow_manifest, mock_run_service, mock_steel_adapter
@@ -89,20 +107,22 @@ class TestFlowExecution:
         with patch("app.runtime.runner.create_browser_use_agent", return_value=None):
             await flow_runner.execute_flow(run, sample_flow_manifest, input_payload)
 
-        # Verify Steel session was created
-        mock_steel_adapter.create_session.assert_called_once_with(run.id)
+        # Verify Steel session was attached
+        mock_steel_adapter.attach_to_session.assert_called_once_with(run.id)
 
         # Verify run status was updated to running
-        mock_run_service.update_run_status.assert_any_call(run.id, "running")
+        mock_run_service.update_run.assert_any_call(run.id, {"status": "running"}, ANY)
 
         # Verify run status was updated to awaiting_input (not completed!)
-        mock_run_service.update_run_status.assert_any_call(run.id, "awaiting_input")
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": "awaiting_input"}, ANY
+        )
 
         # Verify run was NOT marked as completed (should not be in call list)
         completed_calls = [
             call
-            for call in mock_run_service.update_run_status.call_args_list
-            if call[0][1] == "completed"
+            for call in mock_run_service.update_run.call_args_list
+            if call[0][1].get("status") == "completed"
         ]
         assert len(completed_calls) == 0, (
             "Flow should not be marked as completed when paused at checkpoint"
@@ -147,7 +167,9 @@ class TestFlowExecution:
             await flow_runner.execute_flow(run, simple_flow, {})
 
         # Verify run was marked as completed
-        mock_run_service.update_run_status.assert_any_call(run.id, "completed")
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": "completed"}, ANY
+        )
 
     async def test_flow_handles_action_execution_errors(
         self, flow_runner, sample_flow_manifest, mock_run_service
@@ -170,8 +192,8 @@ class TestFlowExecution:
             await flow_runner.execute_flow(run, sample_flow_manifest, {})
 
         # Verify run was marked as failed
-        mock_run_service.update_run_status.assert_any_call(
-            run.id, "failed", error="Test error"
+        mock_run_service.update_run.assert_any_call(
+            run.id, {"status": "failed", "error": "Test error"}, ANY
         )
 
     async def test_checkpoint_emits_proper_event_data(

@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .base import BrowserAgent
+from app.runtime.executor import BrowserAgentProtocol
 
 logger = logging.getLogger(__name__)
 
 
-class NoopAgent(BrowserAgent):
+class NoopAgent(BrowserAgentProtocol):
     """No-op implementation of BrowserAgent."""
 
     async def start(self) -> None:

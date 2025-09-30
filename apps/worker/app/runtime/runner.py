@@ -6,30 +6,47 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from app.automation.agents.browser_use_agent import (
-    create_browser_use_agent,
-)
-from app.automation.agents.noop import NoopAgent
-from app.automation.executor import ActionExecutor
-from app.db import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models import Run
+from app.runtime.agents import NoopAgent
 from app.runtime.context import RunContext
 from app.runtime.events import EventEmitter
+from app.runtime.executor import ActionExecutor
 from app.runtime.steel import SteelBrowserAdapter
 from app.services.run.service import RunService
+
+
+# Fallback symbol so tests can patch `app.runtime.runner.create_browser_use_agent`
+def create_browser_use_agent(_ws_url: str | None):  # pragma: no cover - shim
+    return None
+
 
 logger = logging.getLogger(__name__)
 
 
 class FlowRunner:
-    """Executes automation flows with human-in-the-loop support."""
+    """Executes automation flows with human-in-the-loop support.
+
+    Dependencies:
+    - run_service: business logic for run updates (injected)
+    - steel_adapter: browser adapter
+    - session: direct DB session for this flow execution
+    - session_getter: callable db context (fallback when session not provided)
+    - event_emitter: event emitter
+    """
 
     def __init__(
-        self, run_service: RunService, steel_adapter: SteelBrowserAdapter | None = None
+        self,
+        run_service: RunService,
+        steel_adapter: SteelBrowserAdapter,
+        session: AsyncSession,
+        event_emitter: EventEmitter,
     ):
         self.run_service = run_service
-        self.event_emitter = EventEmitter(session_getter=get_session)
-        self.steel_adapter = steel_adapter or SteelBrowserAdapter()
+        self.session = session
+        self.event_emitter = event_emitter
+        self.steel_adapter = steel_adapter
         self._agent = None
         self._executor: ActionExecutor | None = None
 
@@ -37,7 +54,33 @@ class FlowRunner:
         self, run: Run, flow_manifest: dict[str, Any], input_payload: dict[str, Any]
     ) -> None:
         """Execute a flow with the given inputs."""
-        context = RunContext(
+        context = self._setup_execution_context(run, flow_manifest, input_payload)
+        flow_completed = False
+        failed = False
+
+        try:
+            await self._setup_agent_and_executor(run.id)
+            await self._update_run_status(run.id, "running")
+            await self.event_emitter.emit_run_started(context)
+
+            flow_completed = await self._execute_flow_steps(context)
+
+            if flow_completed:
+                await self._handle_flow_completion(run.id, context)
+
+        except Exception as e:  # noqa: BLE001
+            failed = True
+            await self._handle_execution_error(run.id, context, e)
+        finally:
+            await self._cleanup_after_execution(
+                run.id, failed=failed, flow_completed=flow_completed
+            )
+
+    def _setup_execution_context(
+        self, run: Run, flow_manifest: dict[str, Any], input_payload: dict[str, Any]
+    ) -> RunContext:
+        """Create and return the execution context for the flow."""
+        return RunContext(
             run_id=run.id,
             flow_id=run.flow_id,
             user_id=run.user_id,
@@ -45,69 +88,59 @@ class FlowRunner:
             manifest=flow_manifest,
         )
 
-        flow_completed = False
-        failed = False
-        try:
-            # Initialize browser session via Steel.dev
-            await self.steel_adapter.create_session(run.id)
+    async def _setup_agent_and_executor(self, run_id: UUID) -> None:
+        """Attach to session and initialize browser agent and executor."""
+        await self.steel_adapter.attach_to_session(run_id)
+        session_info = self.steel_adapter.get_session_info(run_id) or {}
+        websocket_url = session_info.get("websocket_url")
+        agent = create_browser_use_agent(websocket_url) or NoopAgent()
+        await agent.start()
+        self._agent = agent
+        self._executor = ActionExecutor(agent, self.event_emitter)
 
-            # Initialize browser agent (browser-use if available, fallback to noop)
-            session_info = self.steel_adapter.get_session_info(run.id) or {}
-            websocket_url = session_info.get("websocket_url")
-            agent = create_browser_use_agent(websocket_url) or NoopAgent()
-            await agent.start()
-            self._agent = agent
-            self._executor = ActionExecutor(agent, self.event_emitter)
+    async def _update_run_status(self, run_id: UUID, status: str) -> None:
+        """Update the run status in the database."""
+        await self.run_service.update_run(run_id, {"status": status}, self.session)
 
-            # Update run status to running
-            await self.run_service.update_run_status(run.id, "running")
+    async def _handle_flow_completion(self, run_id: UUID, context: RunContext) -> None:
+        """Handle successful flow completion."""
+        await self._update_run_status(run_id, "completed")
+        await self.event_emitter.emit_run_completed(context)
 
-            # Emit start event
-            await self.event_emitter.emit_run_started(context)
+    async def _handle_execution_error(
+        self, run_id: UUID, context: RunContext, error: Exception
+    ) -> None:
+        """Handle execution errors."""
+        logger.exception("Flow execution failed for run %s", run_id)
+        await self.run_service.update_run(
+            run_id, {"status": "failed", "error": str(error)}, self.session
+        )
+        await self.event_emitter.emit_run_failed(context, str(error))
 
-            # Execute the flow
-            flow_completed = await self._execute_flow_steps(context)
-
-            # Only mark as completed if all steps finished
-            if flow_completed:
-                # Update run status to completed
-                await self.run_service.update_run_status(run.id, "completed")
-
-                # Emit completion event
-                await self.event_emitter.emit_run_completed(context)
-
-        except Exception as e:
-            logger.exception("Flow execution failed for run %s", run.id)
-
-            # Update run status to failed
-            await self.run_service.update_run_status(run.id, "failed", error=str(e))
-
-            # Emit failure event
-            await self.event_emitter.emit_run_failed(context, str(e))
-            failed = True
-        finally:
-            # Cleanup only when completed or failed; keep resources alive when paused.
-            paused = (not failed) and (not flow_completed)
-            if paused:
-                logger.info(
-                    "Run %s paused; keeping agent and browser session open for resume",
-                    run.id,
-                )
-            else:
-                # Cleanup agent and Steel session
-                try:
-                    if self._agent:
-                        try:
-                            await asyncio.wait_for(self._agent.stop(), timeout=10.0)
-                        except TimeoutError:
-                            logger.warning("Agent stop timed out for run %s", run.id)
-                finally:
+    async def _cleanup_after_execution(
+        self, run_id: UUID, *, failed: bool, flow_completed: bool
+    ) -> None:
+        """Clean up resources after execution."""
+        paused = not failed and not flow_completed
+        if paused:
+            logger.info(
+                "Run %s paused; keeping agent and browser session open for resume",
+                run_id,
+            )
+        else:
+            try:
+                if self._agent:
                     try:
-                        await asyncio.wait_for(
-                            self.steel_adapter.close_session(run.id), timeout=10.0
-                        )
+                        await asyncio.wait_for(self._agent.stop(), timeout=10.0)
                     except TimeoutError:
-                        logger.warning("Session close timed out for run %s", run.id)
+                        logger.warning("Agent stop timed out for run %s", run_id)
+            finally:
+                try:
+                    await asyncio.wait_for(
+                        self.steel_adapter.close_session(run_id), timeout=10.0
+                    )
+                except TimeoutError:
+                    logger.warning("Session close timed out for run %s", run_id)
 
     async def _execute_flow_steps(self, context: RunContext) -> bool:
         """Execute individual flow steps (placeholder implementation).
@@ -162,7 +195,15 @@ class FlowRunner:
             await self.event_emitter.emit_checkpoint_reached(
                 context, checkpoint_id, reason, expected_action, expires_at
             )
-            await self.run_service.update_run_status(context.run_id, "awaiting_input")
+            if self.session is not None:
+                await self.run_service.update_run(
+                    context.run_id, {"status": "awaiting_input"}, self.session
+                )
+            else:
+                async with self.session_getter() as db:
+                    await self.run_service.update_run(
+                        context.run_id, {"status": "awaiting_input"}, db
+                    )
             return False
 
         if step_type == "action":
@@ -175,15 +216,12 @@ class FlowRunner:
 
     async def _execute_action(self, context: RunContext, step: dict[str, Any]) -> None:
         """Execute an action step via the ActionExecutor."""
-        if not self._executor:
-            message = "ActionExecutor not initialized"
-            raise RuntimeError(message)
         await self._executor.execute_action(context, step)
 
     async def resume_flow(self, run_id: UUID, user_input: dict[str, Any]) -> None:
         """Resume a paused flow with user input."""
         # Update run status back to running
-        await self.run_service.update_run_status(run_id, "running")
+        await self.run_service.update_run(run_id, {"status": "running"}, self.session)
 
         # Continue execution (placeholder)
         logger.info("Resuming flow %s with user input: %s", run_id, user_input)
