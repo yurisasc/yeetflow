@@ -173,8 +173,10 @@ class FlowEngine:
                 checkpoint_id,
             )
             self._coordinator.cleanup(context.run_id)
-            # Not resumed: remain awaiting_input; do not cancel here
-            return False
+            timeout_error = TimeoutError(
+                f"Run {context.run_id} checkpoint {checkpoint_id} timed out"
+            )
+            raise timeout_error
 
         # Action step
         await self._executor.execute_action(context, step, step_name)
