@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 685f547cd036
+Revision ID: 0f0c72d0b94f
 Revises:
-Create Date: 2025-10-01 14:28:30.313069
+Create Date: 2025-10-01 22:44:36.429328
 
 """
 
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import sqlite
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "685f547cd036"
+revision: str = "0f0c72d0b94f"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -89,6 +89,7 @@ def upgrade() -> None:
                 "canceled",
                 name="runstatus",
             ),
+            server_default="pending",
             nullable=False,
         ),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
