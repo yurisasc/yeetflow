@@ -79,6 +79,13 @@ def _reconcile_flow(
     owner_id: UUID,
     session: AsyncSession,
 ) -> tuple[Flow | None, bool, bool]:
+    """Create or update a flow record to match a manifest.
+
+    Registry-managed manifests take precedence over existing records with the same
+    key. Any matching flow is forced to `FlowVisibility.PUBLIC` so the catalog
+    remains consistent with what the registry exposes.
+    """
+
     manifest_uuid = _manifest_to_uuid(manifest)
     if flow is None:
         flow = Flow(
