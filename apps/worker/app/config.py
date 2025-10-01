@@ -152,7 +152,7 @@ class Settings(BaseSettings):
         description="API token for authentication",
     )
 
-    artifacts_dir: str = Field(
+    artifacts_dir: Path = Field(
         default=DEFAULT_ARTIFACTS_DIR,
         description="Directory for storing artifacts",
     )
