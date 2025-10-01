@@ -27,7 +27,19 @@ def _manifest_to_uuid(manifest: FlowManifest) -> UUID:
             return UUID(str(manifest.id))
         except (ValueError, TypeError):
             logger.debug("Manifest id %s is not a valid UUID", manifest.id)
-    seed = manifest.id or manifest.key
+    seed_value = manifest.id or manifest.key
+    if not seed_value:
+        error_msg = "Flow manifest must define at least one of 'id' or 'key'"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    try:
+        seed = str(seed_value)
+    except Exception as exc:
+        error_msg = f"Failed to coerce manifest seed '{seed_value}' to string"
+        logger.exception(error_msg)
+        raise ValueError(error_msg) from exc
+
     return uuid5(NAMESPACE_URL, seed)
 
 

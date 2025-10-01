@@ -199,4 +199,11 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f("ix_user_email"))
 
     op.drop_table("user")
+
+    # Clean up enum types (PostgreSQL)
+    sa.Enum(name="flowvisibility").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="userrole").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="runstatus").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="eventtype").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="sessionstatus").drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###

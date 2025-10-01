@@ -1,6 +1,5 @@
 import logging
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import func
@@ -83,17 +82,22 @@ class AuthService:
         )
 
         session.add(user)
+
+        if is_first_user:
+            flows_dir = settings.flows_dir
+            if not flows_dir.exists():
+                logger.warning(
+                    "Flow registry directory %s does not exist; skipping initial sync",
+                    flows_dir,
+                )
+            else:
+                registry = FlowRegistry(flows_dir)
+                await sync_flows_from_registry(session, registry, owner_id=user.id)
+
         await session.commit()
         await session.refresh(user)
 
         logger.info("Created user: %s with role: %s", user.email, user.role)
-
-        if is_first_user:
-            flows_dir = (
-                Path(__file__).resolve().parent.parent.parent / "runtime" / "flows"
-            )
-            registry = FlowRegistry(flows_dir)
-            await sync_flows_from_registry(session, registry, owner_id=user.id)
 
         return user
 
