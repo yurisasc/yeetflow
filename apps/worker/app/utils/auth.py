@@ -7,7 +7,6 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
-from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -16,12 +15,13 @@ from app.config import settings
 from app.constants import BOOTSTRAP_USER_EMAIL
 from app.db import get_db_session
 from app.models import User, UserRole
+from app.utils._passlib_context import get_passlib_context
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = get_passlib_context()
 
 # JWT token settings
 SECRET_KEY = settings.secret_key

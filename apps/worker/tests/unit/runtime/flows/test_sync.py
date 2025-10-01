@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.models import Flow, FlowVisibility, User, UserRole
 from app.runtime.flows.registry import FlowManifest
-from app.runtime.flows.sync import sync_flows_from_registry
+from app.runtime.flows.sync import _manifest_to_uuid, sync_flows_from_registry
 
 
 class StubRegistry:
@@ -70,7 +70,16 @@ class TestSyncFlowsFromRegistry:
         await session.commit()
         await session.refresh(owner)
 
+        manifest = FlowManifest(
+            id="550e8400-e29b-41d4-a716-44665544bbbb",
+            key="existing-flow",
+            name="Updated Flow Name",
+            description="Updated description",
+            config={"step": "updated"},
+        )
+
         existing_flow = Flow(
+            id=_manifest_to_uuid(manifest),
             key="existing-flow",
             name="Existing Flow",
             description="Original description",
@@ -80,14 +89,6 @@ class TestSyncFlowsFromRegistry:
         session.add(existing_flow)
         await session.commit()
         await session.refresh(existing_flow)
-
-        manifest = FlowManifest(
-            id="550e8400-e29b-41d4-a716-44665544bbbb",
-            key="existing-flow",
-            name="Updated Flow Name",
-            description="Updated description",
-            config={"step": "updated"},
-        )
 
         registry = StubRegistry([manifest])
 
