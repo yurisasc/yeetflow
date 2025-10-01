@@ -94,6 +94,13 @@ def _reconcile_flow(
         return flow, True, False
 
     changed = False
+    if flow.id != manifest_uuid:
+        error_msg = (
+            f"Existing flow {manifest.key} has id {flow.id} which conflicts with "
+            f"manifest uuid {manifest_uuid}"
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg)
     if flow.visibility != FlowVisibility.PUBLIC:
         flow.visibility = FlowVisibility.PUBLIC
         changed = True
