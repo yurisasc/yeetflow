@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 37d784dcf2da
+Revision ID: 685f547cd036
 Revises:
-Create Date: 2025-10-01 02:45:11.815042
+Create Date: 2025-10-01 14:28:30.313069
 
 """
 
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import sqlite
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "37d784dcf2da"
+revision: str = "685f547cd036"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -52,6 +52,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "visibility",
+            sa.Enum("private", "public", name="flowvisibility"),
+            server_default="private",
+            nullable=False,
+        ),
         sa.Column("created_by", sa.Uuid(), nullable=False),
         sa.ForeignKeyConstraint(["created_by"], ["user.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -193,4 +199,11 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f("ix_user_email"))
 
     op.drop_table("user")
+
+    # Clean up enum types (PostgreSQL)
+    sa.Enum(name="flowvisibility").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="userrole").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="runstatus").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="eventtype").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="sessionstatus").drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###

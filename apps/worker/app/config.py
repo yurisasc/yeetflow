@@ -3,6 +3,7 @@ Centralized configuration management for the YeetFlow worker application.
 All environment variables are loaded and validated here.
 """
 
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -22,9 +23,10 @@ DEFAULT_RETRY_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BASE_DELAY = 1.0
 DEFAULT_RETRY_MAX_DELAY = 30.0
 DEFAULT_API_TOKEN = ""
-DEFAULT_ARTIFACTS_DIR = "./artifacts"
+DEFAULT_ARTIFACTS_DIR = Path(__file__).parent / "artifacts"
 DEFAULT_SOCKETIO_CORS = "*"
 DEFAULT_CORS_ALLOW_ORIGINS = "*"
+DEFAULT_FLOWS_DIR = Path(__file__).parent / "flows"
 
 # CORS configuration constants
 ALLOWED_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
@@ -150,9 +152,14 @@ class Settings(BaseSettings):
         description="API token for authentication",
     )
 
-    artifacts_dir: str = Field(
+    artifacts_dir: Path = Field(
         default=DEFAULT_ARTIFACTS_DIR,
         description="Directory for storing artifacts",
+    )
+
+    flows_dir: Path = Field(
+        default=DEFAULT_FLOWS_DIR,
+        description="Directory containing flow manifests",
     )
 
     # Storage configuration

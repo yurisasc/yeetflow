@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from app.models import FlowVisibility
 from tests.conftest import BaseTestClass
 
 
@@ -11,6 +12,8 @@ class TestFlowsGetByIdContract(BaseTestClass):
         # Use the test flow created in conftest.py
         flow_id = "550e8400-e29b-41d4-a716-446655440000"
         headers = self.get_user_auth_headers()
+
+        self.set_flow_visibility(flow_id, FlowVisibility.PRIVATE)
 
         response = self.client.get(
             f"{self.API_PREFIX}/flows/{flow_id}", headers=headers
@@ -30,6 +33,7 @@ class TestFlowsGetByIdContract(BaseTestClass):
         assert "created_by" in data
         assert "created_at" in data
         assert "updated_at" in data
+        assert data["visibility"] == FlowVisibility.PRIVATE.value
 
     def test_get_flow_by_id_nonexistent_returns_404(self):
         """Test that GET /api/v1/flows/{flow_id} returns NOT_FOUND for nonexistent."""
@@ -59,3 +63,19 @@ class TestFlowsGetByIdContract(BaseTestClass):
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert "not found" in response.json()["detail"].lower()
+
+    def test_get_flow_by_id_public_flow_owned_by_admin(self):
+        """Users should access public flows even if owned by another user."""
+
+        admin_flow_id = "550e8400-e29b-41d4-a716-446655440006"
+        self.set_flow_visibility(admin_flow_id, FlowVisibility.PUBLIC)
+
+        headers = self.get_user_auth_headers()
+        response = self.client.get(
+            f"{self.API_PREFIX}/flows/{admin_flow_id}", headers=headers
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["id"] == admin_flow_id
+        assert data["visibility"] == FlowVisibility.PUBLIC.value

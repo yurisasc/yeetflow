@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import MAX_FLOW_LIST_LIMIT
-from app.models import Flow, User, UserRole
+from app.models import Flow, FlowVisibility, User, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,13 @@ class FlowRepository:
                 .limit(limit)
             )
         else:
-            # Users see only flows they created
+            # Users see flows they created or shared publicly
             result = await session.execute(
                 select(Flow)
-                .where(Flow.created_by == current_user.id)
+                .where(
+                    (Flow.created_by == current_user.id)
+                    | (Flow.visibility == FlowVisibility.PUBLIC)
+                )
                 .order_by(Flow.created_at.desc(), Flow.id.desc())
                 .offset(skip)
                 .limit(limit)

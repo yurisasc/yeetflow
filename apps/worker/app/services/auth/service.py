@@ -8,6 +8,8 @@ from sqlmodel import select
 
 from app.config import settings
 from app.models import User, UserCreate, UserRead, UserRole
+from app.runtime.flows.registry import FlowRegistry
+from app.runtime.flows.sync import sync_flows_from_registry
 from app.utils.auth import (
     Token,
     create_access_token,
@@ -38,7 +40,8 @@ class AuthService:
         user_count = result.scalar()
 
         # Handle first user scenario
-        if user_count == 0:
+        is_first_user = user_count == 0
+        if is_first_user:
             # This is truly the first user, they automatically become admin
             # creator_role should be None for first user (validated by caller)
             if creator_role is not None:
@@ -79,10 +82,23 @@ class AuthService:
         )
 
         session.add(user)
+
+        if is_first_user:
+            flows_dir = settings.flows_dir
+            if not flows_dir.exists():
+                logger.warning(
+                    "Flow registry directory %s does not exist; skipping initial sync",
+                    flows_dir,
+                )
+            else:
+                registry = FlowRegistry(flows_dir)
+                await sync_flows_from_registry(session, registry, owner_id=user.id)
+
         await session.commit()
         await session.refresh(user)
 
         logger.info("Created user: %s with role: %s", user.email, user.role)
+
         return user
 
     async def authenticate_user(
