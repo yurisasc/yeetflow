@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -70,6 +71,18 @@ class FlowRegistry:
         try:
             with Path.open(manifest_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
+
+            if not isinstance(data, dict):
+                logger.error("Manifest %s data must be a mapping", manifest_path)
+                return None
+
+            manifest_key = data.get("key")
+            if not manifest_key:
+                logger.error("Manifest %s missing required 'key' field", manifest_path)
+                return None
+
+            if not data.get("id"):
+                data["id"] = str(uuid5(NAMESPACE_URL, str(manifest_key)))
 
             return FlowManifest(**data)
         except (FileNotFoundError, yaml.YAMLError, ValidationError):
