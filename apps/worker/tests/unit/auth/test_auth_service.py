@@ -22,8 +22,15 @@ class TestAuthService:
 
     @pytest.fixture
     def mock_session(self):
-        """Create mock database session."""
-        return AsyncMock()
+        """Create mock database session with sync/async methods mocked appropriately."""
+        session = MagicMock()
+        session.add = MagicMock()
+        session.commit = AsyncMock()
+        session.refresh = AsyncMock()
+        session.execute = AsyncMock()
+        session.__aenter__ = AsyncMock(return_value=session)
+        session.__aexit__ = AsyncMock(return_value=None)
+        return session
 
     async def test_create_user_first_user_admin(self, auth_service, mock_session):
         """Test creating first user (should become admin)."""
@@ -68,7 +75,6 @@ class TestAuthService:
         registry_instance = MagicMock()
         expected_flows_dir = (
             Path("app/services/auth/service.py").resolve().parent.parent.parent
-            / "runtime"
             / "flows"
         )
 
