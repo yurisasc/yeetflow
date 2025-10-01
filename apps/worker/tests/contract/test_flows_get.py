@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from app.models import FlowVisibility
 from tests.conftest import BaseTestClass
 
 # Number of test flows created for test_user in conftest.py
@@ -41,6 +42,7 @@ class TestFlowsGetContract(BaseTestClass):
             assert "created_by" in flow
             assert "created_at" in flow
             assert "updated_at" in flow
+            assert "visibility" in flow
 
     def test_get_flows_admin_sees_all_flows(self):
         """Test that admin users can see all flows, including those owned by others."""
@@ -77,6 +79,25 @@ class TestFlowsGetContract(BaseTestClass):
         # Verify user cannot see the admin-only flow
         user_flow_ids = {flow["id"] for flow in user_data["flows"]}
         assert "550e8400-e29b-41d4-a716-446655440006" not in user_flow_ids
+
+    def test_get_flows_includes_public_flows_from_other_users(self):
+        """Regular users should see public flows owned by other users."""
+
+        public_flow_id = "550e8400-e29b-41d4-a716-446655440006"
+        self.set_flow_visibility(public_flow_id, FlowVisibility.PUBLIC)
+
+        headers = self.get_user_auth_headers()
+        response = self.client.get(f"{self.API_PREFIX}/flows", headers=headers)
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        flow_ids = {flow["id"] for flow in data["flows"]}
+        assert public_flow_id in flow_ids
+
+        public_flow = next(
+            flow for flow in data["flows"] if flow["id"] == public_flow_id
+        )
+        assert public_flow["visibility"] == FlowVisibility.PUBLIC.value
 
     def test_get_flows_limit_parameter_works(self):
         """Test that limit parameter works correctly."""

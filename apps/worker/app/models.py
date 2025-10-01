@@ -17,6 +17,11 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 
+class FlowVisibility(str, Enum):
+    PRIVATE = "private"
+    PUBLIC = "public"
+
+
 class UserBase(SQLModel):
     email: str = Field(index=True, unique=True)
     name: str | None = None
@@ -151,6 +156,17 @@ class Flow(FlowBase, table=True):
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+    visibility: FlowVisibility = Field(
+        default=FlowVisibility.PRIVATE,
+        sa_column=Column(
+            SQLEnum(
+                FlowVisibility,
+                values_callable=lambda enum: [member.value for member in enum],
+            ),
+            server_default=FlowVisibility.PRIVATE.value,
+            nullable=False,
+        ),
+    )
 
     created_by: UUID = Field(
         sa_column=Column(
@@ -263,6 +279,7 @@ class FlowRead(PydanticBaseModel):
     name: str
     description: str | None = None
     config: dict[str, Any] = PydField(default_factory=dict)
+    visibility: FlowVisibility
     created_by: UUID
     created_at: datetime
     updated_at: datetime

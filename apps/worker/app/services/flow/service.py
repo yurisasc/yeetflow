@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import FlowRead, User, UserRole
+from app.models import FlowRead, FlowVisibility, User, UserRole
 from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.flow.repository import FlowRepository
 
@@ -61,7 +61,11 @@ class FlowService:
             raise FlowNotFoundError(str(flow_id))
 
         # Check visibility
-        if current_user.role != UserRole.ADMIN and flow.created_by != current_user.id:
+        if (
+            current_user.role != UserRole.ADMIN
+            and flow.created_by != current_user.id
+            and flow.visibility != FlowVisibility.PUBLIC
+        ):
             raise FlowAccessDeniedError(str(flow_id))
 
         return FlowRead.model_validate(flow)

@@ -20,7 +20,7 @@ from app import db
 from app.constants import API_V1_PREFIX
 from app.db import get_db_session
 from app.main import app
-from app.models import Flow, Run, RunStatus, User, UserRole
+from app.models import Flow, FlowVisibility, Run, RunStatus, User, UserRole
 from app.utils.auth import create_access_token, get_password_hash
 
 
@@ -75,6 +75,11 @@ class BaseTestClass:
         """
         asyncio.run(self._set_run_status_async(run_id, status))
 
+    def set_flow_visibility(self, flow_id: str, visibility: FlowVisibility):
+        """Helper method to update flow visibility in the database."""
+
+        asyncio.run(self._set_flow_visibility_async(flow_id, visibility))
+
     async def async_set_run_status(self, run_id: str, status: RunStatus):
         """Async helper method to set run status directly in the database.
 
@@ -89,6 +94,18 @@ class BaseTestClass:
             run = result.scalar_one_or_none()
             if run:
                 run.status = status
+                await session.commit()
+
+    async def _set_flow_visibility_async(
+        self, flow_id: str, visibility: FlowVisibility
+    ) -> None:
+        """Async helper method to update flow visibility."""
+
+        async with self.TestAsyncSessionLocal() as session:
+            result = await session.execute(select(Flow).where(Flow.id == UUID(flow_id)))
+            flow = result.scalar_one_or_none()
+            if flow:
+                flow.visibility = visibility
                 await session.commit()
 
     def setup_method(self):
@@ -187,6 +204,7 @@ class BaseTestClass:
                     name="Test Flow",
                     description="A test flow for development and testing",
                     created_by=self.test_user.id,
+                    visibility=FlowVisibility.PUBLIC,
                 ),
                 Flow(
                     id=UUID("550e8400-e29b-41d4-a716-446655440001"),
@@ -194,6 +212,7 @@ class BaseTestClass:
                     name="HITL Flow",
                     description="A flow that requires human-in-the-loop interaction",
                     created_by=self.test_user.id,
+                    visibility=FlowVisibility.PUBLIC,
                 ),
                 Flow(
                     id=UUID("550e8400-e29b-41d4-a716-446655440002"),
@@ -201,6 +220,7 @@ class BaseTestClass:
                     name="Auto Complete Flow",
                     description="A flow that completes automatically",
                     created_by=self.test_user.id,
+                    visibility=FlowVisibility.PUBLIC,
                 ),
                 Flow(
                     id=UUID("550e8400-e29b-41d4-a716-446655440003"),
@@ -208,6 +228,7 @@ class BaseTestClass:
                     name="PDF Generation Flow",
                     description="A flow that generates PDF artifacts",
                     created_by=self.test_user.id,
+                    visibility=FlowVisibility.PUBLIC,
                 ),
                 Flow(
                     id=UUID("550e8400-e29b-41d4-a716-446655440004"),
@@ -215,6 +236,7 @@ class BaseTestClass:
                     name="Large Output Flow",
                     description="A flow that generates large output files",
                     created_by=self.test_user.id,
+                    visibility=FlowVisibility.PUBLIC,
                 ),
                 Flow(
                     id=UUID("550e8400-e29b-41d4-a716-446655440005"),
@@ -222,6 +244,7 @@ class BaseTestClass:
                     name="Multi HITL Flow",
                     description="A flow with multiple human interaction points",
                     created_by=self.test_user.id,
+                    visibility=FlowVisibility.PUBLIC,
                 ),
                 # Add a flow owned by admin to test visibility differences
                 Flow(
