@@ -74,7 +74,17 @@ class EventType(str, Enum):
 
 
 class RunBase(SQLModel):
-    status: RunStatus = RunStatus.PENDING
+    status: RunStatus = Field(
+        default=RunStatus.PENDING,
+        sa_column=Column(
+            SQLEnum(
+                RunStatus,
+                values_callable=lambda enum: [member.value for member in enum],
+            ),
+            server_default=RunStatus.PENDING.value,
+            nullable=False,
+        ),
+    )
     started_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
