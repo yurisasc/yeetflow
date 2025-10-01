@@ -27,6 +27,9 @@ class RunnerCoordinator:
     def set_task(self, run_id: UUID, task: asyncio.Task) -> None:
         self._tasks[run_id] = task
 
+    def get_task(self, run_id: UUID) -> asyncio.Task | None:
+        return self._tasks.get(run_id)
+
     async def start(self, run_id: UUID, coro: Awaitable[None]) -> None:
         """Start a background task for a run."""
         task = asyncio.create_task(coro)

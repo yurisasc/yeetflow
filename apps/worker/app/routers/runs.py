@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import MAX_RUN_LIST_LIMIT
 from app.db import get_db_session
+from app.dependencies import get_run_scheduler
 from app.models import (
     EventRead,
     RunContinue,
@@ -19,6 +20,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.runtime.scheduler import RunScheduler
 from app.services.flow.errors import FlowAccessDeniedError, FlowNotFoundError
 from app.services.run.errors import (
     MissingSessionURLError,
@@ -31,6 +33,7 @@ from app.utils.run import ensure_run_access
 
 db_dependency = Depends(get_db_session)
 current_user_dependency = Depends(get_current_user)
+scheduler_dependency = Depends(get_run_scheduler)
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +45,16 @@ async def create_run(
     request: RunCreate,
     current_user: User = current_user_dependency,
     session: AsyncSession = db_dependency,
+    scheduler: RunScheduler = scheduler_dependency,
 ):
-    """Create a new run, initialize browser session, return run with session URL."""
+    """Create a new run, init browser session, start flow exec, return run."""
     service = RunService()
     try:
         run, session_url = await service.create_run_with_user(
             request, current_user, session
         )
+
+        await scheduler.schedule(run, input_payload={})
 
         return RunCreateResponse(
             id=run.id,
