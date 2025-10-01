@@ -33,14 +33,7 @@ def _manifest_to_uuid(manifest: FlowManifest) -> UUID:
         logger.error(error_msg)
         raise ValueError(error_msg)
 
-    try:
-        seed = str(seed_value)
-    except Exception as exc:
-        error_msg = f"Failed to coerce manifest seed '{seed_value}' to string"
-        logger.exception(error_msg)
-        raise ValueError(error_msg) from exc
-
-    return uuid5(NAMESPACE_URL, seed)
+    return uuid5(NAMESPACE_URL, str(seed_value))
 
 
 async def _pick_default_owner(session: AsyncSession) -> UUID | None:
@@ -134,7 +127,10 @@ async def sync_flows_from_registry(
     if resolved_owner is None:
         return
 
-    existing_flows = await session.execute(select(Flow))
+    manifest_keys = [manifest.key for manifest in manifests]
+    existing_flows = await session.execute(
+        select(Flow).where(Flow.key.in_(manifest_keys))
+    )
     flows_by_key = {flow.key: flow for flow in existing_flows.scalars()}
 
     created = 0
@@ -145,7 +141,7 @@ async def sync_flows_from_registry(
         flow, is_created, is_updated = _reconcile_flow(
             manifest, flow, resolved_owner, session
         )
-        if is_created and flow is not None:
+        if is_created:
             flows_by_key[manifest.key] = flow
             created += 1
         elif is_updated:
