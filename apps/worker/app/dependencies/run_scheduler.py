@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import AsyncSessionLocal
+from app import db
 from app.runtime.core import RunnerCoordinator
 from app.runtime.scheduler import RunScheduler
 
@@ -14,7 +14,7 @@ _coordinator = RunnerCoordinator()
 
 def get_run_scheduler() -> RunScheduler:
     """Create a RunScheduler with the global coordinator and session factory."""
-    session_factory: Callable[[], AsyncSession] = AsyncSessionLocal
+    session_factory: Callable[[], AsyncSession] = db.AsyncSessionLocal
     return RunScheduler(
         coordinator=_coordinator,
         session_factory=session_factory,
