@@ -1,8 +1,15 @@
+import asyncio
 import time
 from http import HTTPStatus
+from threading import Event
+from unittest.mock import patch
+from uuid import UUID
 
 import pytest
 
+from app.dependencies.run_scheduler import get_run_scheduler
+from app.runtime.core import RunnerCoordinator
+from app.runtime.scheduler import RunScheduler
 from tests.conftest import BaseTestClass
 
 
@@ -190,3 +197,58 @@ class TestStartFlowIntegration(BaseTestClass):
             f"{self.API_PREFIX}/runs/{data['id']}", headers=headers
         )
         assert get_response.status_code == HTTPStatus.OK
+
+    def test_start_flow_schedules_background_task_via_coordinator(self):
+        """Verify RunScheduler registers a coordinator task on run creation."""
+
+        class RecordingCoordinator(RunnerCoordinator):
+            def __init__(self) -> None:
+                super().__init__()
+                self.started_event = Event()
+                self.started_runs: set[UUID] = set()
+
+            async def start(self, run_id, coro):  # type: ignore[override]
+                self.started_runs.add(run_id)
+                await super().start(run_id, coro)
+                self.started_event.set()
+
+        coordinator = RecordingCoordinator()
+        scheduler = RunScheduler(
+            coordinator=coordinator,
+            session_factory=self.TestAsyncSessionLocal,
+        )
+
+        # Override the API dependency so the router uses our recording scheduler.
+        self.client.app.dependency_overrides[get_run_scheduler] = lambda: scheduler
+
+        # Track that the coordinator-run coroutine actually starts executing.
+        run_started = Event()
+
+        async def stub_run(*_args, **_kwargs):  # type: ignore[override]
+            # Mark the coroutine as running, but exit quickly to keep the task short.
+            run_started.set()
+            await asyncio.sleep(0.01)
+
+        headers = self.get_user_auth_headers()
+
+        try:
+            with patch(
+                "app.runtime.engine.flow_engine.FlowEngine._run",
+                new=stub_run,
+            ):
+                response = self.client.post(
+                    f"{self.API_PREFIX}/runs",
+                    json={"flow_id": "550e8400-e29b-41d4-a716-446655440000"},
+                    headers=headers,
+                )
+
+            assert response.status_code == HTTPStatus.CREATED
+            run_id = UUID(response.json()["id"])
+
+            assert coordinator.started_event.wait(timeout=1.0)
+            assert run_id in coordinator.started_runs
+
+            assert run_started.wait(timeout=1.0)
+        finally:
+            # Ensure we restore the original dependency wiring even if the test fails.
+            self.client.app.dependency_overrides.pop(get_run_scheduler, None)
